@@ -54,4 +54,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     // Battery-friendly location for place alarms
     implementation("com.google.android.gms:play-services-location:21.3.0")
+    // play-services pulls in an old Fragment; permission requests need 1.3+
+    implementation("androidx.fragment:fragment-ktx:1.8.5")
 }
