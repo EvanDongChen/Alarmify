@@ -18,6 +18,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.app.NotificationManagerCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.launch
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.evanchen.alarmify.data.AlarmRepository
 import com.evanchen.alarmify.ring.AlarmService
@@ -40,6 +44,17 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !NotificationManagerCompat.from(this).areNotificationsEnabled()) {
             askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
+        // Whenever an alarm starts ringing while the app is on screen (or the app is opened while one rings),
+        // go straight to the full ringing screen; the heads-up banner alone is easy to lose.
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                AlarmService.ringing.collect { alarm ->
+                    if (alarm != null) {
+                        startActivity(Intent(this@MainActivity, RingActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    }
+                }
+            }
+        }
         setContent {
             AlarmifyTheme {
                 val alarms by AlarmRepository.alarms.collectAsStateWithLifecycle()
@@ -51,10 +66,6 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         refreshFixes()
-        // Opening the app while an alarm rings takes you to the ringing screen.
-        if (AlarmService.ringing.value != null) {
-            startActivity(Intent(this, RingActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        }
     }
 
     /** Everything that would stop an alarm ringing loudly over the lock screen, each with a one-tap fix. */
