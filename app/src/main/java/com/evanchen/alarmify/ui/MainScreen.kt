@@ -126,7 +126,7 @@ fun MainScreen(alarms: List<Alarm>, fixes: List<Fix>) {
                     )
                     if (alarms.size < 3) {
                         Text(
-                            "Tap the dial to set an alarm, or hold and drag.",
+                            "Tap to set an alarm · hold to fine-tune · drag sideways to turn it over",
                             style = MaterialTheme.typography.bodySmall.copy(color = Night.FgFaint, textAlign = androidx.compose.ui.text.style.TextAlign.Center),
                             modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
                         )

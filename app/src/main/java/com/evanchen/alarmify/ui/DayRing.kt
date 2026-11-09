@@ -59,6 +59,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
@@ -103,7 +104,8 @@ private const val HALF = 720 // minutes on one face
  * The fish is now, your alarms sit on the face for their half of the day, and an arc runs from now to the next alarm.
  *
  * Tap the dial to make an alarm at that time (or tap an alarm to edit it). Hold and drag to scrub to the exact minute
- * with a live preview in the middle; let go to set it. Swipe sideways, or use the switch below, to flip AM/PM.
+ * with a live preview in the middle; let go to set it. Drag sideways to turn the dial over by hand (or tap the
+ * switch below) for the other half of the day.
  */
 @Composable
 fun DayRing(
@@ -143,6 +145,25 @@ fun DayRing(
                 lift.animateTo(0f, spring(dampingRatio = 0.35f, stiffness = 700f))
             }
             flip.animateTo(target, tween(480, easing = CubicBezierEasing(0.4f, 0f, 0.2f, 1f)))
+        }
+    }
+    /**
+     * Let go after turning the dial by hand ([base] is where it rested). Past halfway, or flicked onwards, it carries
+     * on over and lands on the other side; otherwise it falls back. [fling] is the flick's direction, or 0.
+     */
+    fun settle(base: Float, fling: Int) {
+        val deg = flip.value - base
+        val dir = if (deg >= 0f) 1 else -1
+        val over = abs(deg) > 90f || (fling == dir && abs(deg) > 12f)
+        if (over) face = 1 - face
+        scope.launch {
+            launch { flip.animateTo(if (over) base + dir * 180f else base, spring(dampingRatio = 0.82f, stiffness = 320f)) }
+            lift.animateTo(0f, tween(180, easing = FastOutLinearInEasing))
+            if (over) {
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress) // it lands
+                lift.animateTo(-0.07f, tween(70))
+                lift.animateTo(0f, spring(dampingRatio = 0.35f, stiffness = 700f))
+            }
         }
     }
     // The face actually drawn: whichever side is towards you mid-spin.
@@ -230,15 +251,35 @@ fun DayRing(
                         if (ended == true) return@awaitEachGesture
 
                         if (swiped) {
-                            // Follow the swipe to its end, then flip.
-                            var dx = 0f
+                            // Turn the dial by hand: it follows your finger, a drag across most of the dial turning
+                            // it over once, and rises as it comes up on its edge.
+                            val base = flip.targetValue
+                            val tracker = VelocityTracker()
+                            val across = size.width * 0.75f
+                            var crossed = false
                             while (true) {
                                 val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
-                                dx = change.position.x - down.position.x
+                                tracker.addPosition(change.uptimeMillis, change.position)
                                 change.consume()
                                 if (!change.pressed) break
+                                val deg = ((change.position.x - down.position.x) / across * 180f).coerceIn(-180f, 180f)
+                                val past = abs(deg) > 90f
+                                if (past != crossed) {
+                                    crossed = past
+                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                }
+                                scope.launch {
+                                    flip.snapTo(base + deg)
+                                    lift.snapTo(sin(abs(deg) / 180f * PI.toFloat()) * 0.7f)
+                                }
                             }
-                            if (abs(dx) > 40.dp.toPx()) showFace(1 - currentFace, if (dx > 0) 1 else -1)
+                            val vx = tracker.calculateVelocity().x
+                            val fling = when {
+                                vx > 600.dp.toPx() -> 1
+                                vx < -600.dp.toPx() -> -1
+                                else -> 0
+                            }
+                            settle(base, fling)
                             return@awaitEachGesture
                         }
 
