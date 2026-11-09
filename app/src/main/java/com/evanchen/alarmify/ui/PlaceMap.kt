@@ -43,8 +43,8 @@ import org.osmdroid.config.Configuration
 import org.osmdroid.events.MapListener
 import org.osmdroid.events.ScrollEvent
 import org.osmdroid.events.ZoomEvent
-import org.osmdroid.tileprovider.tilesource.OnlineTileSourceBase
-import org.osmdroid.util.MapTileIndex
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import android.view.GestureDetector
 import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.CustomZoomButtonsController
@@ -81,7 +81,7 @@ fun PlaceMap(
     fun fit(m: MapView, animated: Boolean) {
         val center = m.mapCenter.let { LatLon(it.latitude, it.longitude) }
         // With no ring yet (dropping a pin), open on a few blocks around you so nearby spots are one drag away.
-        val pad = if (currentRadius == 0) 900.0 else max(currentRadius * 1.8, 300.0)
+        val pad = if (currentRadius == 0) 550.0 else max(currentRadius * 1.8, 300.0)
         val pts = buildList {
             add(GeoPoint(center.lat, center.lon))
             currentHere?.let { add(GeoPoint(it.lat, it.lon)) }
@@ -94,7 +94,8 @@ fun PlaceMap(
             pts.minOf { it.latitude } - dLat, pts.minOf { it.longitude } - dLon,
         )
         // Keep the buoy where it is (centred on the destination), just pick a zoom that fits.
-        val zoom = MapView.getTileSystem().getBoundingBoxZoom(box, m.width - 80, m.height - 80).coerceIn(4.0, 18.5)
+        // Whole zoom levels only: in between, the tiles are stretched and the street names go blurry.
+        val zoom = kotlin.math.floor(MapView.getTileSystem().getBoundingBoxZoom(box, m.width - 80, m.height - 80)).coerceIn(4.0, 18.0)
         if (animated) m.controller.animateTo(GeoPoint(center.lat, center.lon), zoom, 400L)
         else { m.controller.setZoom(zoom); m.controller.setCenter(GeoPoint(center.lat, center.lon)) }
     }
@@ -140,6 +141,8 @@ fun PlaceMap(
             currentHere?.let { h ->
                 val p = proj.toPixels(GeoPoint(h.lat, h.lon), null)
                 val pos = Offset(p.x.toFloat(), p.y.toFloat())
+                // Right under the pin (you haven't moved it yet), the fish would only peek out round its edges.
+                if ((pos - c).getDistance() < 22.dp.toPx()) return@let
                 val towards = Math.toDegrees(atan2((c.y - pos.y).toDouble(), (c.x - pos.x).toDouble())).toFloat()
                 drawCircle(Night.Bg.copy(alpha = 0.75f), 18.dp.toPx(), pos)
                 drawCircle(Night.Fg.copy(alpha = 0.18f), 18.dp.toPx(), pos, style = Stroke(1.dp.toPx()))
@@ -151,7 +154,6 @@ fun PlaceMap(
             drawCircle(Night.Accent.copy(alpha = (1f - pulse) * 0.45f), 8.dp.toPx() + pulse * 22.dp.toPx(), c)
             drawCircle(Night.Bg, 10.dp.toPx(), c)
             drawCircle(Night.Accent, 7.5.dp.toPx(), c)
-            drawCircle(Night.Bg.copy(alpha = 0.6f), 2.5.dp.toPx(), c + Offset(-2.5f, -2.5f) * density)
         }
 
         // Re-frame both you and the destination.
@@ -164,7 +166,7 @@ fun PlaceMap(
         ) { Icon(Icons.Rounded.CenterFocusStrong, null, tint = Night.Fg, modifier = Modifier.size(20.dp)) }
 
         Text(
-            "Esri · HERE · Garmin · © OpenStreetMap",
+            "© OpenStreetMap contributors",
             style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, letterSpacing = 0.sp, color = Night.FgSoft),
             modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp)
                 .background(Night.Bg.copy(alpha = 0.6f), RoundedCornerShape(6.dp)).padding(horizontal = 6.dp, vertical = 2.dp),
@@ -182,19 +184,25 @@ fun PlaceMap(
     }
 }
 
-/** Sets up an OpenStreetMap view with Esri's dark grey tiles, tinted to the app's deep-water teal. */
+/**
+ * Sets up the map: OpenStreetMap's standard tiles (street names, stations, shops, parks), colour-inverted and tinted
+ * to the app's deep-water teal.
+ */
 private fun createMap(context: Context, start: LatLon): MapView {
     Configuration.getInstance().apply {
-        userAgentValue = context.packageName
+        // OpenStreetMap's tile policy asks apps to identify themselves.
+        userAgentValue = "Alarmify/1.0 (${context.packageName})"
         val cache = File(context.cacheDir, "osmdroid")
         osmdroidBasePath = cache
         osmdroidTileCache = File(cache, "tiles")
     }
-    return MapView(context).apply {
-        setTileSource(DARK_TILES)
+    return CentredZoomMapView(context).apply {
+        setTileSource(TileSourceFactory.MAPNIK)
         setMultiTouchControls(true)
         zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
         isTilesScaledToDpi = true
+        // Pinches settle on whole zoom levels too, so the map is always sharp once your fingers lift.
+        setZoomRounding(true)
         isHorizontalMapRepetitionEnabled = false
         isVerticalMapRepetitionEnabled = false
         minZoomLevel = 3.0
@@ -205,32 +213,43 @@ private fun createMap(context: Context, start: LatLon): MapView {
         overlayManager.tilesOverlay.setColorFilter(OCEAN_TINT)
         controller.setZoom(15.0)
         controller.setCenter(GeoPoint(start.lat, start.lon))
-        // Inside a bottom sheet: keep drags on the map instead of letting the sheet take them.
+
+        // Double-tap zooms in around the centre, not around your finger, so the pin stays put.
+        val doubleTap = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onDoubleTap(e: MotionEvent): Boolean { controller.zoomIn(); return true }
+        })
         setOnTouchListener { v, e ->
+            // Inside a bottom sheet: keep drags on the map instead of letting the sheet take them.
             if (e.actionMasked == MotionEvent.ACTION_DOWN) v.parent?.requestDisallowInterceptTouchEvent(true)
-            false
+            doubleTap.onTouchEvent(e)
         }
     }
 }
 
-/** Esri's dark grey canvas: a quiet, label-light basemap (free with attribution, no key). Tiles are z/y/x. */
-private val DARK_TILES = object : OnlineTileSourceBase(
-    "EsriDarkGray", 0, 16, 256, "",
-    arrayOf("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/"),
-    "Esri, HERE, Garmin, © OpenStreetMap contributors",
-) {
-    override fun getTileURLString(index: Long): String =
-        baseUrl + MapTileIndex.getZoom(index) + "/" + MapTileIndex.getY(index) + "/" + MapTileIndex.getX(index)
+/**
+ * A map whose pinch-zoom pivots on the middle of the view rather than between your fingers, so zooming in and out
+ * never moves the spot under the pin.
+ */
+private class CentredZoomMapView(context: Context) : MapView(context) {
+    override fun setMultiTouchScaleInitPoint(x: Float, y: Float) = super.setMultiTouchScaleInitPoint(width / 2f, height / 2f)
+    override fun setMultiTouchScaleCurrentPoint(x: Float, y: Float) = super.setMultiTouchScaleCurrentPoint(width / 2f, height / 2f)
 }
 
-/** Maps the tiles' greys onto the app's water: black → deep teal, light grey → seafoam. */
-private val OCEAN_TINT = ColorMatrixColorFilter(
-    ColorMatrix(
-        floatArrayOf(
-            0.299f * 0.42f, 0.587f * 0.42f, 0.114f * 0.42f, 0f, 0f,
-            0.299f * 0.58f, 0.587f * 0.58f, 0.114f * 0.58f, 0f, 8f,
-            0.299f * 0.62f, 0.587f * 0.62f, 0.114f * 0.62f, 0f, 12f,
-            0f, 0f, 0f, 1f, 0f,
+/** Inverts the tiles (light map → dark) and tints them: pale land → deep teal, dark ink → seafoam. */
+private val OCEAN_TINT = run {
+    val k = floatArrayOf(0.55f, 0.72f, 0.76f)
+    val off = floatArrayOf(0f, 8f, 12f)
+    ColorMatrixColorFilter(
+        ColorMatrix(
+            FloatArray(20).also { m ->
+                for (row in 0..2) {
+                    m[row * 5 + 0] = -0.299f * k[row]
+                    m[row * 5 + 1] = -0.587f * k[row]
+                    m[row * 5 + 2] = -0.114f * k[row]
+                    m[row * 5 + 4] = 255f * k[row] + off[row]
+                }
+                m[18] = 1f
+            },
         ),
-    ),
-)
+    )
+}

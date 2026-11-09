@@ -126,7 +126,7 @@ fun MainScreen(alarms: List<Alarm>, fixes: List<Fix>) {
                     )
                     if (alarms.size < 3) {
                         Text(
-                            "Tap the ring to set an alarm at that time.",
+                            "Tap the dial to set an alarm, or hold and drag.",
                             style = MaterialTheme.typography.bodySmall.copy(color = Night.FgFaint, textAlign = androidx.compose.ui.text.style.TextAlign.Center),
                             modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
                         )
@@ -321,7 +321,7 @@ private fun EmptyState() {
     Column(Modifier.fillMaxWidth().padding(vertical = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         FishGlyph(Modifier.size(width = 56.dp, height = 30.dp))
         Text(
-            "Quiet waters. Tap the ring, or use the buttons below.",
+            "Quiet waters. Tap the dial, or use the buttons below.",
             style = MaterialTheme.typography.bodyMedium.copy(color = Night.FgSoft),
             modifier = Modifier.padding(top = 12.dp),
         )
