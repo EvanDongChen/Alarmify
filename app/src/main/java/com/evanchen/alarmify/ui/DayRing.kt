@@ -128,9 +128,9 @@ fun DayRing(
     // Which face is showing, and the flip between them (0° = AM up, 180° = PM up).
     var face by rememberSaveable { mutableStateOf(if (nowT.hour >= 12) PM else AM) }
     val flip = remember { Animatable(face * 180f) }
-    // How high the coin is tossed: 0 resting, 1 at the top of the toss (a little below 0 as it lands).
+    // How far into a turn the dial is, 0 resting to 1 side-on: it shows as a solid coin with a rim while turning.
     val lift = remember { Animatable(0f) }
-    /** Flip the dial over like a coin: it lifts, turns over once ([dir] picks which way), and lands with a small bounce. */
+    /** Flip the dial over like a coin, in place: it turns over once ([dir] picks which way). */
     fun showFace(f: Int, dir: Int = if (f == PM) 1 else -1) {
         if (f == face) return
         face = f
@@ -141,8 +141,6 @@ fun DayRing(
                 lift.animateTo(1f, tween(240, easing = LinearOutSlowInEasing))
                 lift.animateTo(0f, tween(240, easing = FastOutLinearInEasing))
                 haptics.performHapticFeedback(HapticFeedbackType.LongPress) // it lands
-                lift.animateTo(-0.07f, tween(70))
-                lift.animateTo(0f, spring(dampingRatio = 0.35f, stiffness = 700f))
             }
             flip.animateTo(target, tween(480, easing = CubicBezierEasing(0.4f, 0f, 0.2f, 1f)))
         }
@@ -159,11 +157,7 @@ fun DayRing(
         scope.launch {
             launch { flip.animateTo(if (over) base + dir * 180f else base, spring(dampingRatio = 0.82f, stiffness = 320f)) }
             lift.animateTo(0f, tween(180, easing = FastOutLinearInEasing))
-            if (over) {
-                haptics.performHapticFeedback(HapticFeedbackType.LongPress) // it lands
-                lift.animateTo(-0.07f, tween(70))
-                lift.animateTo(0f, spring(dampingRatio = 0.35f, stiffness = 700f))
-            }
+            if (over) haptics.performHapticFeedback(HapticFeedbackType.LongPress) // it lands
         }
     }
     // The face actually drawn: whichever side is towards you mid-spin.
@@ -252,7 +246,7 @@ fun DayRing(
 
                         if (swiped) {
                             // Turn the dial by hand: it follows your finger, a drag across most of the dial turning
-                            // it over once, and rises as it comes up on its edge.
+                            // it over once.
                             val base = flip.targetValue
                             val tracker = VelocityTracker()
                             val across = size.width * 0.75f
@@ -306,30 +300,8 @@ fun DayRing(
                 },
             contentAlignment = Alignment.Center,
         ) {
-            // The coin's shadow on the sea floor: it shrinks and fades as the coin rises.
-            Canvas(Modifier.fillMaxSize()) {
-                val up = lift.value.coerceAtLeast(0f)
-                if (up <= 0.01f) return@Canvas
-                val r = ringRadius(size, density)
-                val w = r * (1.1f - 0.45f * up)
-                drawOval(
-                    Night.Bg.copy(alpha = 0.55f * up),
-                    topLeft = Offset(center.x - w, center.y + r * 1.02f - 7.dp.toPx()),
-                    size = Size(w * 2, 14.dp.toPx()),
-                )
-            }
-            // The coin: tossed up and scaled as it comes towards you.
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        val up = lift.value
-                        scaleX = 1f + 0.13f * up
-                        scaleY = 1f + 0.13f * up - if (up < 0f) 0.4f * up else 0f // a squash as it lands
-                        translationY = -up.coerceAtLeast(0f) * 30.dp.toPx()
-                    },
-                contentAlignment = Alignment.Center,
-            ) {
+            // The coin: it turns in place, at its own size.
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             // While it spins it's a solid coin, so side-on you see its rim rather than nothing.
             Canvas(Modifier.fillMaxSize()) {
                 val up = lift.value.coerceAtLeast(0f)
