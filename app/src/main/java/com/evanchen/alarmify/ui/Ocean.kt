@@ -40,20 +40,32 @@ private const val TAU = (2 * PI).toFloat()
  * school of fish crossing. Kept faint so it never competes with the content.
  */
 @Composable
-fun OceanBackdrop(modifier: Modifier = Modifier, school: Boolean = true) {
+fun OceanBackdrop(modifier: Modifier = Modifier, school: Boolean = true, depth: () -> Float = { 0f }) {
     val t = rememberInfiniteTransition(label = "ocean")
     // One slow clock for everything (seconds, wrapping every 120 s).
     val time by t.animateFloat(0f, 120f, infiniteRepeatable(tween(120_000, easing = LinearEasing)), label = "time")
     val snow = remember { List(34) { Triple(Random.nextFloat(), Random.nextFloat(), Random.nextFloat()) } }
 
     Canvas(modifier) {
-        drawRays(time)
-        drawSnow(time, snow)
+        // How far down the page we've scrolled. The surface light stays at the top of the page, so it slides up
+        // and out of view as you go down, and the water gets darker the deeper you are.
+        val d = depth().coerceAtLeast(0f)
+        drawRect(
+            Brush.verticalGradient(
+                0f to Color(0xFF0B2530), 1f to Color.Transparent,
+                startY = -d, endY = size.height * 0.45f - d,
+            ),
+        )
+        drawRays(time, d)
+        drawSnow(time, snow, d)
+        val dark = (d / (size.height * 1.5f)).coerceIn(0f, 1f) * 0.45f
+        if (dark > 0f) drawRect(Color(0xFF02080B).copy(alpha = dark))
         if (school) drawSchool(time)
     }
 }
 
-private fun DrawScope.drawRays(time: Float) {
+private fun DrawScope.drawRays(time: Float, scroll: Float) {
+    if (scroll > size.height * 0.62f) return
     val beams = listOf(0.18f to 0.9f, 0.46f to 1.3f, 0.74f to 0.7f)
     beams.forEachIndexed { i, (x, w) ->
         val shimmer = 0.5f + 0.5f * sin(time * TAU / listOf(12f, 15f, 20f)[i] + i)
@@ -61,29 +73,31 @@ private fun DrawScope.drawRays(time: Float) {
         val top = size.width * x + drift
         val half = 22.dp.toPx() * w
         val depth = size.height * 0.62f
+        val top0 = -scroll
         val path = Path().apply {
-            moveTo(top - half, 0f)
-            lineTo(top + half, 0f)
-            lineTo(top + half * 2.6f + 80.dp.toPx(), depth)
-            lineTo(top - half * 0.6f + 80.dp.toPx(), depth)
+            moveTo(top - half, top0)
+            lineTo(top + half, top0)
+            lineTo(top + half * 2.6f + 80.dp.toPx(), top0 + depth)
+            lineTo(top - half * 0.6f + 80.dp.toPx(), top0 + depth)
             close()
         }
         drawPath(
             path,
             Brush.verticalGradient(
                 listOf(Night.Fg.copy(alpha = 0.035f + 0.03f * shimmer), Color.Transparent),
-                startY = 0f, endY = depth,
+                startY = top0, endY = top0 + depth,
             ),
         )
     }
 }
 
-private fun DrawScope.drawSnow(time: Float, seeds: List<Triple<Float, Float, Float>>) {
+private fun DrawScope.drawSnow(time: Float, seeds: List<Triple<Float, Float, Float>>, scroll: Float) {
     seeds.forEach { (sx, sy, s) ->
         val period = if (s < 0.5f) 60f else 120f
         val p = ((time / period) + sy) % 1f
         val x = size.width * sx + sin(time * TAU / 12f + sy * 10f) * 8.dp.toPx()
-        val y = p * size.height
+        // Drifts past at a fraction of the scroll speed, so it reads as depth (parallax).
+        val y = ((p * size.height - scroll * 0.35f) % size.height + size.height) % size.height
         drawCircle(Night.FgSoft.copy(alpha = 0.10f + 0.22f * s), radius = (0.6f + 1.1f * s) * density, center = Offset(x, y))
     }
 }

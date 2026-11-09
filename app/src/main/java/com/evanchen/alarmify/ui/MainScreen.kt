@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -33,6 +34,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -83,10 +85,19 @@ fun MainScreen(alarms: List<Alarm>, fixes: List<Fix>) {
     val next = alarms.mapNotNull { a -> a.nextTrigger(now)?.let { a.id to it } }.minByOrNull { it.second }
 
     // Faintly lighter near the top, like light from the surface.
-    Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(0f to Color(0xFF0B2530), 0.4f to Night.Bg))) {
-        OceanBackdrop(Modifier.fillMaxSize())
+    val listState = rememberLazyListState()
+    // The ring header's height, remembered while it's on screen, so depth keeps counting once it scrolls away.
+    var headerPx by remember { mutableIntStateOf(0) }
+    Box(Modifier.fillMaxSize().background(Night.Bg)) {
+        OceanBackdrop(Modifier.fillMaxSize(), depth = {
+            val first = listState.layoutInfo.visibleItemsInfo.firstOrNull()
+            if (first != null && first.index == 0) headerPx = first.size
+            if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat()
+            else headerPx + (listState.firstVisibleItemIndex - 1) * (first?.size ?: 400).toFloat() + listState.firstVisibleItemScrollOffset
+        })
         LazyColumn(
             Modifier.fillMaxSize(),
+            state = listState,
             contentPadding = PaddingValues(start = 24.dp, end = 24.dp, bottom = 120.dp),
         ) {
             item {
