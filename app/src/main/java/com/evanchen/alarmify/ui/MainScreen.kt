@@ -82,7 +82,8 @@ fun MainScreen(alarms: List<Alarm>, fixes: List<Fix>) {
     val sorted = alarms.sortedWith(compareBy({ it.hour }, { it.minute }, { it.id }))
     val next = alarms.mapNotNull { a -> a.nextTrigger(now)?.let { a.id to it } }.minByOrNull { it.second }
 
-    Box(Modifier.fillMaxSize().background(Night.Bg)) {
+    // Faintly lighter near the top, like light from the surface.
+    Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(0f to Color(0xFF0B2530), 0.4f to Night.Bg))) {
         LazyColumn(
             Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 24.dp, end = 24.dp, bottom = 120.dp),
@@ -278,9 +279,12 @@ private fun SwipeToDelete(onDelete: () -> Unit, content: @Composable () -> Unit)
 
 @Composable
 private fun EmptyState() {
-    Text(
-        "No alarms yet. Tap the ring, or use the buttons below.",
-        style = MaterialTheme.typography.bodyMedium.copy(color = Night.FgSoft),
-        modifier = Modifier.padding(vertical = 20.dp),
-    )
+    Column(Modifier.fillMaxWidth().padding(vertical = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        FishGlyph(Modifier.size(width = 56.dp, height = 30.dp))
+        Text(
+            "Quiet waters. Tap the ring, or use the buttons below.",
+            style = MaterialTheme.typography.bodyMedium.copy(color = Night.FgSoft),
+            modifier = Modifier.padding(top = 12.dp),
+        )
+    }
 }

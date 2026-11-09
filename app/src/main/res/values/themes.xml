@@ -6,5 +6,5 @@
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowLightNavigationBar">false</item>
     </style>
-    <color name="night">#FF0E0D0B</color>
+    <color name="night">#FF06141A</color>
 </resources>

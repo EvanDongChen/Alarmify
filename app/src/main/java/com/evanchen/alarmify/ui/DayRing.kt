@@ -2,6 +2,7 @@ package com.evanchen.alarmify.ui
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -87,6 +88,8 @@ fun DayRing(
 
     val glow = rememberInfiniteTransition(label = "glow")
     val breath by glow.animateFloat(0.35f, 0.8f, infiniteRepeatable(tween(1800), RepeatMode.Reverse), label = "breath")
+    val sway by glow.animateFloat(-1f, 1f, infiniteRepeatable(tween(420), RepeatMode.Reverse), label = "sway")
+    val rise by glow.animateFloat(0f, 1f, infiniteRepeatable(tween(14_000, easing = LinearEasing)), label = "rise")
 
     val currentAlarms by rememberUpdatedState(alarms)
     val currentOnAlarmTap by rememberUpdatedState(onAlarmTap)
@@ -132,6 +135,7 @@ fun DayRing(
             val c = center
             val r = ringRadius(size, density)
             drawDial(c, r, measurer, is24)
+            drawBubbles(c, r, rise)
 
             // Now → next alarm.
             val start = minuteAngle(nowMin)
@@ -160,26 +164,27 @@ fun DayRing(
                 val isNext = a.id == next?.first?.id
                 when {
                     isNext -> {
-                        drawCircle(Night.Accent.copy(alpha = 0.25f * breath), 16.dp.toPx(), o)
+                        drawCircle(Night.Accent.copy(alpha = 0.22f * breath), 16.dp.toPx(), o)
                         drawCircle(Night.Accent, 7.dp.toPx(), o)
+                        drawCircle(Night.Bg.copy(alpha = 0.5f), 2.dp.toPx(), o + Offset(-2.5f, -2.5f) * density)
                     }
                     a.enabled -> {
-                        drawCircle(Night.Bg, 6.dp.toPx(), o)
-                        drawCircle(Night.Fg, 4.5.dp.toPx(), o)
+                        // A bubble.
+                        drawCircle(Night.Bg, 7.dp.toPx(), o)
+                        drawCircle(Night.Fg, 6.dp.toPx(), o, style = Stroke(1.5.dp.toPx()))
+                        drawCircle(Night.Fg, 1.5.dp.toPx(), o + Offset(-2.5f, -2.5f) * density)
                     }
                     else -> {
                         drawCircle(Night.Bg, 6.dp.toPx(), o)
-                        drawCircle(Night.FgFaint, 4.dp.toPx(), o, style = Stroke(1.5.dp.toPx()))
+                        drawCircle(Night.FgFaint, 4.5.dp.toPx(), o, style = Stroke(1.2.dp.toPx()))
                     }
                 }
             }
 
-            // Now.
+            // Now: a little fish swimming round the day.
             val n = pointAt(c, r, start)
-            val inner = pointAt(c, r - 22.dp.toPx(), start)
-            drawLine(Night.Fg.copy(alpha = 0.5f), inner, n, 1.5.dp.toPx(), StrokeCap.Round)
-            drawCircle(Night.Bg, 7.dp.toPx(), n)
-            drawCircle(Night.Fg, 5.dp.toPx(), n)
+            drawCircle(Night.Bg, 15.dp.toPx(), n)
+            drawFish(n, 34.dp.toPx(), start + 90f, Night.Fg, sway = sway)
         }
 
         // The countdown in the middle.
@@ -220,6 +225,23 @@ private fun minuteAngle(minuteOfDay: Float) = 90f + minuteOfDay / 1440f * 360f
 private fun pointAt(c: Offset, r: Float, deg: Float): Offset {
     val rad = deg * PI.toFloat() / 180f
     return Offset(c.x + r * cos(rad), c.y + r * sin(rad))
+}
+
+/** A few tiny bubbles drifting up inside the ring. */
+private fun DrawScope.drawBubbles(c: Offset, r: Float, rise: Float) {
+    val seeds = listOf(0.00f to -0.35f, 0.21f to 0.18f, 0.43f to -0.05f, 0.62f to 0.32f, 0.81f to -0.22f)
+    seeds.forEachIndexed { i, (phase, x) ->
+        val p = (rise + phase) % 1f
+        val y = c.y + r * 0.7f - p * r * 1.4f
+        val wobble = sin((p * 6f + i) * PI.toFloat()) * 6.dp.toPx()
+        val alpha = (sin(p * PI.toFloat()) * 0.35f).coerceAtLeast(0f)
+        drawCircle(
+            Night.FgSoft.copy(alpha = alpha),
+            radius = (1.5f + i % 3) * density,
+            center = Offset(c.x + x * r + wobble, y),
+            style = Stroke(1.dp.toPx()),
+        )
+    }
 }
 
 private fun DrawScope.drawDial(c: Offset, r: Float, measurer: TextMeasurer, is24: Boolean) {

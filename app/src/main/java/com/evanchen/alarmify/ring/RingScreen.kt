@@ -3,6 +3,7 @@ package com.evanchen.alarmify.ring
 import android.text.format.DateFormat
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -35,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -55,6 +57,7 @@ import com.evanchen.alarmify.ui.Night
 import com.evanchen.alarmify.ui.PaperButton
 import com.evanchen.alarmify.ui.Serif
 import com.evanchen.alarmify.ui.TimeText
+import com.evanchen.alarmify.ui.drawFish
 import com.evanchen.alarmify.ui.rememberNow
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -84,7 +87,7 @@ fun RingScreen(alarm: Alarm, onSnooze: () -> Unit, onStop: () -> Unit) {
         )
         TimeText(t.hour, t.minute, DateFormat.is24HourFormat(context), 112.sp, Modifier.padding(top = 4.dp))
         Text(
-            alarm.label.ifBlank { "Time to get up." },
+            alarm.label.ifBlank { "Rise and swim." },
             style = MaterialTheme.typography.bodyLarge.copy(fontFamily = Serif, fontStyle = FontStyle.Italic, fontSize = 26.sp),
         )
 
@@ -102,23 +105,35 @@ fun RingScreen(alarm: Alarm, onSnooze: () -> Unit, onStop: () -> Unit) {
     }
 }
 
-/** A red dot with one ring spreading from it, like a bell being struck. */
+/** A fish bobbing in the middle of ripples spreading out, and bubbles rising. */
 @Composable
 private fun Pulse() {
     val anim = rememberInfiniteTransition(label = "pulse")
-    val p by anim.animateFloat(0f, 1f, infiniteRepeatable(tween(1600, easing = LinearEasing)), label = "p")
-    Canvas(Modifier.size(200.dp)) {
+    val p by anim.animateFloat(0f, 1f, infiniteRepeatable(tween(1800, easing = LinearEasing)), label = "p")
+    val bob by anim.animateFloat(-1f, 1f, infiniteRepeatable(tween(1400), RepeatMode.Reverse), label = "bob")
+    val sway by anim.animateFloat(-1f, 1f, infiniteRepeatable(tween(260), RepeatMode.Reverse), label = "sway")
+    Canvas(Modifier.size(240.dp)) {
         val c = center
-        for (i in 0 until 2) {
-            val q = (p + i * 0.5f) % 1f
+        for (i in 0 until 3) {
+            val q = (p + i / 3f) % 1f
             drawCircle(
-                Night.Accent.copy(alpha = (1f - q) * 0.6f),
-                radius = 14.dp.toPx() + q * size.minDimension / 2.2f,
+                Night.Accent.copy(alpha = (1f - q) * 0.55f),
+                radius = 30.dp.toPx() + q * size.minDimension / 2.3f,
                 center = c,
                 style = Stroke(1.5.dp.toPx()),
             )
         }
-        drawCircle(Night.Accent, radius = 14.dp.toPx(), center = c)
+        // Bubbles from the fish's mouth.
+        for (i in 0 until 3) {
+            val q = (p + i / 3f) % 1f
+            drawCircle(
+                Night.Fg.copy(alpha = (1f - q) * 0.6f),
+                radius = (2f + i) * density,
+                center = Offset(c.x + 30.dp.toPx() + kotlin.math.sin(q * 9f) * 3.dp.toPx(), c.y - 8.dp.toPx() - q * 70.dp.toPx()),
+                style = Stroke(1.dp.toPx()),
+            )
+        }
+        drawFish(Offset(c.x, c.y + bob * 6.dp.toPx()), 64.dp.toPx(), 0f, Night.Accent, sway = sway)
     }
 }
 

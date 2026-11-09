@@ -7,6 +7,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.media.AudioAttributes
+import android.media.AudioDeviceCallback
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
 import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.net.Uri
@@ -31,7 +34,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Rings an alarm: plays the alarm sound (fading in), vibrates, and posts a full-screen notification that
+ * Rings an alarm: plays the alarm sound (fading in; in the headphones if any are connected, else out loud), vibrates, and posts a full-screen notification that
  * opens [RingActivity] over the lock screen. Stops itself on dismiss, snooze, or after [AUTO_SILENCE_MS].
  */
 class AlarmService : Service() {
@@ -75,14 +78,52 @@ class AlarmService : Service() {
             .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "alarmify:ringing")
             .apply { acquire(AUTO_SILENCE_MS + 5_000) }
 
+        level = START_LEVEL
         playSound()
+        handler.postDelayed(fade, FADE_STEP_MS)
+        audio.registerAudioDeviceCallback(deviceWatcher, handler)
         if (alarm.vibrate) vibrate()
 
-        handler.removeCallbacksAndMessages(null)
-        handler.postDelayed({ AlarmRepository.dismiss(id); stopRinging() }, AUTO_SILENCE_MS)
+        handler.postDelayed(autoSilence, AUTO_SILENCE_MS)
     }
 
+    private val autoSilence = Runnable { currentId?.let { AlarmRepository.dismiss(it) }; stopRinging() }
+
+    // ---- Sound: through headphones when they're connected, otherwise the speaker. ----
+
+    private val audio by lazy { getSystemService(AudioManager::class.java) }
+    private var level = START_LEVEL
+    private var onHeadphones = false
+    private var savedMediaVolume: Int? = null
+
+    /** Gentle wake: start quiet and reach full volume over ~20 seconds. */
+    private val fade = object : Runnable {
+        override fun run() {
+            level = (level + (1f - START_LEVEL) / 20f).coerceAtMost(1f)
+            runCatching { player?.setVolume(level, level) }
+            if (level < 1f) handler.postDelayed(this, FADE_STEP_MS)
+        }
+    }
+
+    /** Headphones plugged in or out mid-ring: move the sound over. */
+    private val deviceWatcher = object : AudioDeviceCallback() {
+        override fun onAudioDevicesAdded(added: Array<out AudioDeviceInfo>) = reroute()
+        override fun onAudioDevicesRemoved(removed: Array<out AudioDeviceInfo>) = reroute()
+    }
+
+    private fun reroute() {
+        if (currentId == null || (headphones() != null) == onHeadphones) return
+        stopPlayer()
+        playSound()
+    }
+
+    private fun headphones(): AudioDeviceInfo? =
+        audio.getDevices(AudioManager.GET_DEVICES_OUTPUTS).firstOrNull { it.type in HEADPHONE_TYPES }
+
     private fun playSound() {
+        val phones = headphones()
+        onHeadphones = phones != null
+        if (phones != null) ensureMediaAudible() else restoreMediaVolume()
         val candidates = listOfNotNull(
             RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_ALARM),
             Settings.System.DEFAULT_ALARM_ALERT_URI,
@@ -90,38 +131,55 @@ class AlarmService : Service() {
             RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),
         )
         for (uri in candidates) {
-            val mp = tryPlayer(uri) ?: continue
-            player = mp
-            fadeIn(mp)
+            player = tryPlayer(uri, phones) ?: continue
             return
         }
     }
 
-    private fun tryPlayer(uri: Uri): MediaPlayer? = runCatching {
+    /**
+     * Android's alarm stream always rings out loud, even with headphones in, so with headphones connected we
+     * play on the media stream and point it at them; on its own it rings the speaker as an alarm.
+     */
+    private fun tryPlayer(uri: Uri, phones: AudioDeviceInfo?): MediaPlayer? = runCatching {
         MediaPlayer().apply {
             setAudioAttributes(
                 AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_ALARM)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .setUsage(if (phones != null) AudioAttributes.USAGE_MEDIA else AudioAttributes.USAGE_ALARM)
+                    .setContentType(if (phones != null) AudioAttributes.CONTENT_TYPE_MUSIC else AudioAttributes.CONTENT_TYPE_SONIFICATION)
                     .build()
             )
             setDataSource(this@AlarmService, uri)
+            if (phones != null) setPreferredDevice(phones)
             isLooping = true
-            setVolume(0.15f, 0.15f)
+            setVolume(level, level)
             prepare()
             start()
         }
     }.getOrNull()
 
-    /** Gentle wake: start quiet and reach full volume over ~20 seconds. */
-    private fun fadeIn(mp: MediaPlayer) {
-        val steps = 20
-        for (i in 1..steps) {
-            handler.postDelayed({
-                val v = 0.15f + 0.85f * (i / steps.toFloat())
-                runCatching { if (player === mp) mp.setVolume(v, v) }
-            }, i * 1_000L)
+    /** A muted media volume would make a headphone alarm silent: lift it to match the alarm volume while ringing. */
+    private fun ensureMediaAudible() {
+        runCatching {
+            val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+            val alarmFrac = audio.getStreamVolume(AudioManager.STREAM_ALARM) /
+                audio.getStreamMaxVolume(AudioManager.STREAM_ALARM).coerceAtLeast(1).toFloat()
+            val target = kotlin.math.ceil(alarmFrac * max).toInt().coerceIn(max / 3, max)
+            val current = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
+            if (current < target) {
+                if (savedMediaVolume == null) savedMediaVolume = current
+                audio.setStreamVolume(AudioManager.STREAM_MUSIC, target, 0)
+            }
         }
+    }
+
+    private fun restoreMediaVolume() {
+        savedMediaVolume?.let { v -> runCatching { audio.setStreamVolume(AudioManager.STREAM_MUSIC, v, 0) } }
+        savedMediaVolume = null
+    }
+
+    private fun stopPlayer() {
+        player?.runCatching { stop(); release() }
+        player = null
     }
 
     private fun vibrate() {
@@ -162,7 +220,7 @@ class AlarmService : Service() {
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)
-            .setColor(0xFFFF5A36.toInt())
+            .setColor(0xFFFF7A5C.toInt())
             .setContentIntent(ringScreen)
             .setFullScreenIntent(ringScreen, true)
             .addAction(0, "Snooze ${AlarmRepository.SNOOZE_MINUTES} min", servicePending(this, ACTION_SNOOZE, alarm.id))
@@ -172,8 +230,9 @@ class AlarmService : Service() {
 
     private fun releasePlayback() {
         handler.removeCallbacksAndMessages(null)
-        player?.runCatching { stop(); release() }
-        player = null
+        runCatching { audio.unregisterAudioDeviceCallback(deviceWatcher) }
+        stopPlayer()
+        restoreMediaVolume()
         vibrator()?.cancel()
         wakeLock?.takeIf { it.isHeld }?.release()
         wakeLock = null
@@ -200,6 +259,17 @@ class AlarmService : Service() {
         private const val EXTRA_ID = "id"
         private const val NOTIFICATION_ID = 42
         private const val AUTO_SILENCE_MS = 10 * 60 * 1000L
+        private const val START_LEVEL = 0.15f
+        private const val FADE_STEP_MS = 1_000L
+
+        private val HEADPHONE_TYPES = buildSet {
+            add(AudioDeviceInfo.TYPE_WIRED_HEADSET)
+            add(AudioDeviceInfo.TYPE_WIRED_HEADPHONES)
+            add(AudioDeviceInfo.TYPE_BLUETOOTH_A2DP)
+            add(AudioDeviceInfo.TYPE_USB_HEADSET)
+            add(AudioDeviceInfo.TYPE_HEARING_AID)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) add(AudioDeviceInfo.TYPE_BLE_HEADSET)
+        }
 
         private val _ringing = MutableStateFlow<Alarm?>(null)
         /** The alarm ringing right now, if any. */

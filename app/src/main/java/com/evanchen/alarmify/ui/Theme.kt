@@ -14,16 +14,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.evanchen.alarmify.R
 
-/** Night table: warm near-black, light ink, and one vermilion that glows like an LED. */
+/** Deep water: dark teal, seafoam ink, and coral as the one warm accent. */
 object Night {
-    val Bg = Color(0xFF0E0D0B)
-    val Raised = Color(0xFF181614)
-    val Fg = Color(0xFFF2ECE2)
-    val FgSoft = Color(0xFFA8A196)
-    val FgFaint = Color(0xFF68625A)
-    val Rule = Color(0xFF2A2723)
-    val Shade = Color(0xFF201E1B)
-    val Accent = Color(0xFFFF5A36)
+    val Bg = Color(0xFF06141A)
+    val Raised = Color(0xFF0C2029)
+    val Fg = Color(0xFFE4F1EE)
+    val FgSoft = Color(0xFF8EAAAE)
+    val FgFaint = Color(0xFF4C686E)
+    val Rule = Color(0xFF15313B)
+    val Shade = Color(0xFF0E2830)
+    val Accent = Color(0xFFFF7A5C)
 }
 
 @OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
