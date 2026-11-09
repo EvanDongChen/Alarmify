@@ -1,0 +1,100 @@
+package com.evanchen.alarmify.data
+
+import android.content.Context
+import android.content.SharedPreferences
+import com.evanchen.alarmify.alarm.AlarmScheduler
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import org.json.JSONArray
+import java.time.Instant
+import java.time.ZoneId
+
+/** Single source of truth for alarms: kept in SharedPreferences, mirrored to AlarmManager on every change. */
+object AlarmRepository {
+    const val SNOOZE_MINUTES = 10
+
+    private lateinit var appContext: Context
+    private lateinit var prefs: SharedPreferences
+    private val _alarms = MutableStateFlow<List<Alarm>>(emptyList())
+    val alarms: StateFlow<List<Alarm>> = _alarms.asStateFlow()
+
+    fun init(context: Context) {
+        if (::prefs.isInitialized) return
+        appContext = context.applicationContext
+        // Device-protected storage so alarms still ring after a reboot, before the phone is unlocked.
+        val storage = appContext.createDeviceProtectedStorageContext()
+        storage.moveSharedPreferencesFrom(appContext, PREFS)
+        prefs = storage.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        _alarms.value = load()
+    }
+
+    fun get(id: Int): Alarm? = _alarms.value.firstOrNull { it.id == id }
+
+    fun newId(): Int = synchronized(this) {
+        val next = prefs.getInt(KEY_NEXT_ID, 1)
+        prefs.edit().putInt(KEY_NEXT_ID, next + 1).apply()
+        next
+    }
+
+    fun upsert(alarm: Alarm) = mutate { list ->
+        if (list.any { it.id == alarm.id }) list.map { if (it.id == alarm.id) alarm else it } else list + alarm
+    }
+
+    fun delete(id: Int) {
+        AlarmScheduler.cancel(appContext, id)
+        mutate { list -> list.filterNot { it.id == id } }
+    }
+
+    fun setEnabled(id: Int, enabled: Boolean) =
+        update(id) { it.copy(enabled = enabled, snoozedUntil = null, fireAt = it.fireAt?.takeIf { enabled }) }
+
+    /** A quick alarm: an ordinary one-time alarm that rings exactly at [at]. */
+    fun addOneTimeAt(at: Long, label: String = ""): Alarm {
+        val t = Instant.ofEpochMilli(at).atZone(ZoneId.systemDefault())
+        val alarm = Alarm(id = newId(), hour = t.hour, minute = t.minute, fireAt = at, label = label)
+        upsert(alarm)
+        return alarm
+    }
+
+    /** Called the moment an alarm goes off. */
+    fun onFired(id: Int) = update(id) { a ->
+        // One-time alarms switch off (and stay in the list); repeating ones get their next ring scheduled.
+        if (a.repeats) a.copy(snoozedUntil = null) else a.copy(enabled = false, snoozedUntil = null, fireAt = null)
+    }
+
+    fun snooze(id: Int, minutes: Int = SNOOZE_MINUTES) =
+        update(id) { it.copy(snoozedUntil = System.currentTimeMillis() + minutes * 60_000L) }
+
+    fun dismiss(id: Int) {
+        if (get(id) == null) return
+        update(id) { it.copy(snoozedUntil = null) }
+    }
+
+    /** Re-registers every alarm with AlarmManager (after boot, time change, app update). */
+    fun rescheduleAll() = AlarmScheduler.sync(appContext, _alarms.value)
+
+    private fun update(id: Int, f: (Alarm) -> Alarm) = mutate { list -> list.map { if (it.id == id) f(it) else it } }
+
+    private fun mutate(f: (List<Alarm>) -> List<Alarm>) {
+        val updated = synchronized(this) {
+            val next = f(_alarms.value)
+            _alarms.value = next
+            prefs.edit().putString(KEY_LIST, JSONArray(next.map { it.toJson() }).toString()).apply()
+            next
+        }
+        AlarmScheduler.sync(appContext, updated)
+    }
+
+    private fun load(): List<Alarm> {
+        val raw = prefs.getString(KEY_LIST, null) ?: return emptyList()
+        return runCatching {
+            val arr = JSONArray(raw)
+            (0 until arr.length()).map { Alarm.fromJson(arr.getJSONObject(it)) }
+        }.getOrDefault(emptyList())
+    }
+
+    private const val PREFS = "alarmify"
+    private const val KEY_LIST = "alarms"
+    private const val KEY_NEXT_ID = "next_id"
+}
