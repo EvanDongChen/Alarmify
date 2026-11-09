@@ -25,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -141,13 +142,15 @@ fun PaperSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit, descriptio
     val knob by animateDpAsState(if (checked) 20.dp else 0.dp, tween(160), label = "knob")
     val track by animateColorAsState(if (checked) Night.Fg else Color.Transparent, tween(160), label = "track")
     val dot by animateColorAsState(if (checked) Night.Bg else Night.FgFaint, tween(160), label = "dot")
+    var pops by remember { androidx.compose.runtime.mutableIntStateOf(0) }
     Box(
         Modifier
+            .bubbleBurst(pops)
             .size(width = 48.dp, height = 28.dp)
             .clip(CircleShape)
             .background(track)
             .border(1.5.dp, if (checked) Night.Fg else Night.FgFaint, CircleShape)
-            .pressable({ onCheckedChange(!checked) }, role = Role.Switch)
+            .pressable({ if (!checked) pops++; onCheckedChange(!checked) }, role = Role.Switch)
             .semantics {
                 contentDescription = description
                 stateDescription = if (checked) "On" else "Off"

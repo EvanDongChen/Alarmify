@@ -58,6 +58,9 @@ import com.evanchen.alarmify.ui.PaperButton
 import com.evanchen.alarmify.ui.Serif
 import com.evanchen.alarmify.ui.TimeText
 import com.evanchen.alarmify.ui.drawFish
+import com.evanchen.alarmify.ui.OceanBackdrop
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import com.evanchen.alarmify.ui.rememberNow
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -71,10 +74,11 @@ fun RingScreen(alarm: Alarm, onSnooze: () -> Unit, onStop: () -> Unit) {
     val now by rememberNow()
     val t = Instant.ofEpochMilli(now).atZone(ZoneId.systemDefault())
 
+    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color(0xFF0B2530), 0.5f to Night.Bg))) {
+    OceanBackdrop(Modifier.fillMaxSize(), school = false)
     Column(
         Modifier
             .fillMaxSize()
-            .background(Night.Bg)
             .statusBarsPadding()
             .navigationBarsPadding()
             .padding(horizontal = 24.dp, vertical = 16.dp),
@@ -102,6 +106,7 @@ fun RingScreen(alarm: Alarm, onSnooze: () -> Unit, onStop: () -> Unit) {
         )
         Spacer(Modifier.height(14.dp))
         SlideToStop(onStop)
+    }
     }
 }
 

@@ -84,6 +84,7 @@ fun MainScreen(alarms: List<Alarm>, fixes: List<Fix>) {
 
     // Faintly lighter near the top, like light from the surface.
     Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(0f to Color(0xFF0B2530), 0.4f to Night.Bg))) {
+        OceanBackdrop(Modifier.fillMaxSize())
         LazyColumn(
             Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 24.dp, end = 24.dp, bottom = 120.dp),
@@ -117,7 +118,7 @@ fun MainScreen(alarms: List<Alarm>, fixes: List<Fix>) {
                 }
             }
             items(fixes, key = { it.title }) { fix -> Notice(fix.title, fix.body, fix.action, fix.onFix) }
-            item { Rule() }
+            item { WaveRule() }
 
             if (sorted.isEmpty()) {
                 item { EmptyState() }
@@ -127,9 +128,10 @@ fun MainScreen(alarms: List<Alarm>, fixes: List<Fix>) {
                         SwipeToDelete(onDelete = {
                             AlarmRepository.delete(alarm.id)
                             toast("Alarm deleted") { AlarmRepository.upsert(alarm) }
-                        }) {
+                        }) { swiping ->
                             AlarmRow(
                                 alarm, now, is24,
+                                solid = swiping,
                                 isNext = alarm.id == next?.first,
                                 onToggle = { on ->
                                     AlarmRepository.setEnabled(alarm.id, on)
@@ -138,7 +140,7 @@ fun MainScreen(alarms: List<Alarm>, fixes: List<Fix>) {
                                 onClick = { editing = alarm },
                             )
                         }
-                        Rule()
+                        WaveRule()
                     }
                 }
             }
@@ -146,7 +148,9 @@ fun MainScreen(alarms: List<Alarm>, fixes: List<Fix>) {
 
         // Bottom actions, within thumb reach.
         Column(
-            Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Night.Bg).navigationBarsPadding(),
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                .background(androidx.compose.ui.graphics.Brush.verticalGradient(0f to Color.Transparent, 0.3f to Night.Bg))
+                .navigationBarsPadding(),
         ) {
             SnackbarHost(snackbar, Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) { data ->
                 Row(
@@ -169,7 +173,6 @@ fun MainScreen(alarms: List<Alarm>, fixes: List<Fix>) {
                     }
                 }
             }
-            Rule()
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -217,6 +220,7 @@ private fun AlarmRow(
     now: Long,
     is24: Boolean,
     isNext: Boolean,
+    solid: Boolean,
     onToggle: (Boolean) -> Unit,
     onClick: () -> Unit,
 ) {
@@ -228,7 +232,8 @@ private fun AlarmRow(
     Row(
         Modifier
             .fillMaxWidth()
-            .background(Night.Bg)
+            // Transparent so the water shows through; solid only while being swiped over the delete layer.
+            .background(if (solid) Night.Bg else Color.Transparent)
             .pressable(onClick, haptic = false)
             .padding(vertical = 16.dp)
             .semantics(mergeDescendants = true) {},
@@ -261,7 +266,7 @@ private fun AlarmRow(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SwipeToDelete(onDelete: () -> Unit, content: @Composable () -> Unit) {
+private fun SwipeToDelete(onDelete: () -> Unit, content: @Composable (swiping: Boolean) -> Unit) {
     val state = rememberSwipeToDismissBoxState(confirmValueChange = {
         if (it == SwipeToDismissBoxValue.EndToStart) { onDelete(); true } else false
     })
@@ -274,7 +279,7 @@ private fun SwipeToDelete(onDelete: () -> Unit, content: @Composable () -> Unit)
                 Text("Delete", style = MaterialTheme.typography.labelLarge.copy(color = Night.Bg), modifier = Modifier.padding(end = 20.dp))
             }
         },
-    ) { content() }
+    ) { content(state.dismissDirection == SwipeToDismissBoxValue.EndToStart) }
 }
 
 @Composable

@@ -17,7 +17,10 @@ Below it, every alarm in a single list, with **New alarm** and **Quick alarm** a
 - Swipe an alarm left to delete it (with undo). One-time alarms switch off after ringing and stay in the list.
 
 The look: deep ocean. Dark teal water, seafoam ink and one coral accent; a little line-drawn fish swims round
-the day ring as "now", alarms sit on it as bubbles, and a fish bobs in the ripples when it rings. Instrument Serif for times and Instrument Sans for text
+the day ring as "now", alarms sit on it as bubbles, and a fish bobs in the ripples when it rings. Behind everything: light rays from the
+surface, drifting marine snow, kelp swaying along the bottom and a small school of fish crossing now and then.
+Dividers are gentle waves, the popups have a wavy top edge, and bubbles pop out when you set a quick alarm or
+switch one on. Instrument Serif for times and Instrument Sans for text
 (both SIL Open Font License, bundled in `app/src/main/res/font`).
 
 Alarms use `AlarmManager.setAlarmClock`, so they ring exactly on time in Doze, and are restored after a reboot.

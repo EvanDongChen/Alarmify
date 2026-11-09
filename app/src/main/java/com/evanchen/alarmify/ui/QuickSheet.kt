@@ -21,6 +21,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -51,16 +53,16 @@ fun QuickSheet(onPick: (at: Long, label: String) -> Unit, onDismiss: () -> Unit)
 
     fun pick(minutes: Int) {
         val at = System.currentTimeMillis() + minutes * 60_000L
-        scope.launch { sheet.hide() }.invokeOnCompletion { onPick(at, "Quick, ${durationWords(minutes)}"); onDismiss() }
+        scope.launch { kotlinx.coroutines.delay(220); sheet.hide() }.invokeOnCompletion { onPick(at, "Quick, ${durationWords(minutes)}"); onDismiss() }
     }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheet,
         containerColor = Night.Raised,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        shape = WaveTopShape(),
         dragHandle = {
-            Box(Modifier.padding(top = 10.dp).size(width = 36.dp, height = 4.dp).clip(CircleShape).background(Night.Rule))
+            Box(Modifier.padding(top = 18.dp).size(width = 36.dp, height = 4.dp).clip(CircleShape).background(Night.Rule))
         },
     ) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
@@ -85,13 +87,15 @@ fun QuickSheet(onPick: (at: Long, label: String) -> Unit, onDismiss: () -> Unit)
 @Composable
 private fun QuickButton(minutes: Int, ringsAt: String, modifier: Modifier, onClick: () -> Unit) {
     val (num, unit) = if (minutes < 60) "$minutes" to "min" else "${minutes / 60}" to "hour"
+    var pops by remember { mutableIntStateOf(0) }
     Column(
         modifier
+            .bubbleBurst(pops)
             .height(104.dp)
             .clip(RoundedCornerShape(20.dp))
             .background(Night.Bg)
             .border(1.dp, Night.Rule, RoundedCornerShape(20.dp))
-            .pressable({ onClick() }, role = Role.Button)
+            .pressable({ pops++; onClick() }, role = Role.Button)
             .semantics(mergeDescendants = true) { contentDescription = "$num $unit, rings at $ringsAt" }
             .padding(horizontal = 20.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.SpaceBetween,

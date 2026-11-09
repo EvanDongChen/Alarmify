@@ -89,9 +89,9 @@ fun AlarmEditor(
         onDismissRequest = onDismiss,
         sheetState = sheet,
         containerColor = Night.Raised,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        shape = WaveTopShape(),
         dragHandle = {
-            Box(Modifier.padding(top = 10.dp).size(width = 36.dp, height = 4.dp).clip(CircleShape).background(Night.Rule))
+            Box(Modifier.padding(top = 18.dp).size(width = 36.dp, height = 4.dp).clip(CircleShape).background(Night.Rule))
         },
     ) {
         Column(
