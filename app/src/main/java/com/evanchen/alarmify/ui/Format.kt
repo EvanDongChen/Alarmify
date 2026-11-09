@@ -98,3 +98,31 @@ fun rememberNow(periodMs: Long = 1_000): State<Long> = produceState(System.curre
         delay(periodMs - value % periodMs)
     }
 }
+
+/** "13 hours 6 minutes", "9 minutes", "under a minute". */
+fun formatDurationLong(ms: Long): String {
+    if (ms < 60_000) return "under a minute"
+    val totalMin = (ms + 59_999) / 60_000
+    val h = totalMin / 60
+    val m = totalMin % 60
+    fun unit(n: Long, one: String) = "$n $one" + if (n == 1L) "" else "s"
+    return when {
+        h == 0L -> unit(m, "minute")
+        m == 0L -> unit(h, "hour")
+        h >= 24 -> unit(h, "hour")
+        else -> "${unit(h, "hour")} ${unit(m, "minute")}"
+    }
+}
+
+/** "today", "tomorrow", or "on Wednesday". */
+fun dayPhrase(epochMs: Long): String = when (val d = relativeDay(epochMs)) {
+    "Today", "Tomorrow" -> d.lowercase()
+    else -> "on $d"
+}
+
+/** "25 min", "1 hr", "1 hr 30 min". */
+fun durationWords(min: Int): String = when {
+    min < 60 -> "$min min"
+    min % 60 == 0 -> "${min / 60} hr"
+    else -> "${min / 60} hr ${min % 60} min"
+}

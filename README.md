@@ -2,12 +2,17 @@
 
 An alarm app for Android (built for Pixel), in Kotlin + Jetpack Compose.
 
-- **Alarms**: a hero card counting down to your next alarm, painted in that hour's sky; a wheel time picker;
-  repeat days with Weekdays / Weekends / Daily shortcuts; labels; swipe to delete with undo.
-- **Quick**: drag a dial (one lap = an hour, up to 3), tap a preset (5m to 1h 30), or tap a "wake up at" time.
-  Running quick alarms count down live and cancel with one tap.
-- **Ringing**: full screen over the lock screen, sound fades in over 20 seconds, a big Snooze button, and a
-  deliberate slide to stop so you don't switch it off in your sleep. Silences itself after 10 minutes.
+One screen: every alarm in a single list, with **New alarm** and **Quick alarm** at the bottom.
+
+- **New alarm**: wheel time picker, repeat days with Once / Weekdays / Weekends / Daily, a label, vibrate.
+- **Quick alarm**: a popup with a grid of durations (5 min to 2 hours), a stepper for any other length, and
+  wake-up times. One tap sets it and it shows in the list as a one-time alarm, ringing to the second.
+- **Ringing**: full screen over the lock screen, sound fades in over 20 seconds, a big Snooze button and a
+  slide to stop. Silences itself after 10 minutes.
+- Swipe an alarm left to delete it (with undo). One-time alarms switch off after ringing and stay in the list.
+
+The look is bedside paper: cream, black ink and one red, Instrument Serif for times and Instrument Sans for text
+(both SIL Open Font License, bundled in `app/src/main/res/font`).
 
 Alarms use `AlarmManager.setAlarmClock`, so they ring exactly on time in Doze, and are restored after a reboot.
 

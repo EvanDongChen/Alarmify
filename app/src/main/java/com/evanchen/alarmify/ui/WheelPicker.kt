@@ -22,7 +22,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -47,6 +46,7 @@ fun WheelPicker(
     visible: Int = 5,
     fontSize: TextUnit = 40.sp,
     description: String = "",
+    textStyle: androidx.compose.ui.text.TextStyle? = null,
 ) {
     val half = visible / 2
     // Non-cyclic wheels get blank rows above and below so the first and last values can reach the middle.
@@ -99,21 +99,14 @@ fun WheelPicker(
                             val dist = if (info == null) half.toFloat()
                             else abs(info.offset + info.size / 2f - center) / itemPx
                             val t = (dist / (half + 0.5f)).coerceIn(0f, 1f)
-                            alpha = 1f - 0.8f * t
-                            scaleX = 1f - 0.25f * t
+                            alpha = 1f - 0.82f * t
+                            scaleX = 1f - 0.2f * t
                             scaleY = scaleX
-                            rotationX = (if (info != null && info.offset + info.size / 2f < center) 1 else -1) * 40f * t
                         },
                     contentAlignment = Alignment.Center,
                 ) {
                     if (v in 0 until count) {
-                        Text(
-                            label(v),
-                            fontSize = fontSize,
-                            fontWeight = FontWeight.Light,
-                            color = Palette.Text,
-                            style = Numeric,
-                        )
+                        Text(label(v), style = (textStyle ?: Clock).copy(fontSize = fontSize))
                     }
                 }
             }

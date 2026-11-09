@@ -1,63 +1,73 @@
 package com.evanchen.alarmify.ui
 
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.Typography
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.evanchen.alarmify.R
 
-/** Night sky → sunrise. Warm dawn is for alarms, cool mint for quick alarms. */
-object Palette {
-    val Night0 = Color(0xFF0A0B1A)
-    val Night1 = Color(0xFF13122E)
-    val Night2 = Color(0xFF1E1A47)
-    val Sheet = Color(0xFF161536)
-
-    val Dawn = Color(0xFFFF8A5B)
-    val Gold = Color(0xFFFFC46B)
-    val Rose = Color(0xFFFF5F8F)
-    val Lavender = Color(0xFFA89BFF)
-    val Mint = Color(0xFF6EE7C8)
-    val Sky = Color(0xFF66B7FF)
-    val Danger = Color(0xFFFF5C6C)
-
-    val Text = Color(0xFFF5F2FF)
-    val TextDim = Color(0xFFA9A5CB)
-    val TextFaint = Color(0xFF6E6A93)
-
-    val Glass = Color(0x0FFFFFFF)
-    val GlassBorder = Color(0x1AFFFFFF)
-
-    val dawnBrush = Brush.linearGradient(listOf(Dawn, Gold))
-    val quickBrush = Brush.linearGradient(listOf(Mint, Sky))
+/** Bedside paper: cream stock, black ink, and the red of an old travel alarm, used sparingly. */
+object Paper {
+    val Page = Color(0xFFF4EFE4)
+    val Sheet = Color(0xFFFAF7F0)
+    val Ink = Color(0xFF1B1916)
+    val InkSoft = Color(0xFF5E5850)
+    val InkFaint = Color(0xFF9C948A)
+    val Rule = Color(0xFFDAD2C3)
+    val Shade = Color(0xFFEAE3D5)
+    val Red = Color(0xFFC8371D)
 }
 
-/** Tabular figures so times don't jiggle as digits change. */
-val Numeric = TextStyle(fontFeatureSettings = "tnum")
+@OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
+private fun sans(weight: Int) = Font(
+    R.font.instrument_sans,
+    FontWeight(weight),
+    variationSettings = FontVariation.Settings(FontVariation.weight(weight)),
+)
+
+val Serif = FontFamily(
+    Font(R.font.instrument_serif, FontWeight.Normal),
+    Font(R.font.instrument_serif_italic, FontWeight.Normal, FontStyle.Italic),
+)
+
+val Sans = FontFamily(sans(400), sans(500), sans(600), sans(700))
+
+/** Big serif clock numerals. */
+val Clock = TextStyle(fontFamily = Serif, fontWeight = FontWeight.Normal, color = Paper.Ink, fontFeatureSettings = "lnum")
 
 @Composable
 fun AlarmifyTheme(content: @Composable () -> Unit) {
-    val colors = darkColorScheme(
-        primary = Palette.Dawn,
-        onPrimary = Palette.Night0,
-        secondary = Palette.Mint,
-        background = Palette.Night0,
-        surface = Palette.Night1,
-        surfaceContainerHigh = Palette.Night2,
-        onSurface = Palette.Text,
-        onBackground = Palette.Text,
-        onSurfaceVariant = Palette.TextDim,
-        error = Palette.Danger,
+    val colors = lightColorScheme(
+        primary = Paper.Ink,
+        onPrimary = Paper.Page,
+        secondary = Paper.Red,
+        background = Paper.Page,
+        surface = Paper.Page,
+        onSurface = Paper.Ink,
+        onBackground = Paper.Ink,
+        onSurfaceVariant = Paper.InkSoft,
+        outline = Paper.Rule,
+        error = Paper.Red,
     )
-    val base = MaterialTheme.typography
-    val typography = base.copy(
-        displayLarge = base.displayLarge.copy(fontWeight = FontWeight.Light, fontSize = 72.sp, letterSpacing = (-2).sp),
-        headlineLarge = base.headlineLarge.copy(fontWeight = FontWeight.Bold, fontSize = 34.sp, letterSpacing = (-0.5).sp),
-        titleMedium = base.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-        labelSmall = base.labelSmall.copy(fontWeight = FontWeight.SemiBold, letterSpacing = 1.4.sp),
+    val body = TextStyle(fontFamily = Sans, color = Paper.Ink)
+    val typography = Typography(
+        displayLarge = Clock.copy(fontSize = 96.sp, letterSpacing = (-2).sp),
+        headlineLarge = TextStyle(fontFamily = Serif, fontSize = 44.sp, letterSpacing = (-0.5).sp, color = Paper.Ink),
+        titleMedium = body.copy(fontSize = 17.sp, fontWeight = FontWeight.SemiBold),
+        bodyLarge = body.copy(fontSize = 16.sp),
+        bodyMedium = body.copy(fontSize = 14.sp),
+        bodySmall = body.copy(fontSize = 13.sp, color = Paper.InkSoft),
+        labelLarge = body.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
+        labelMedium = body.copy(fontSize = 13.sp, fontWeight = FontWeight.Medium),
+        labelSmall = body.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp, color = Paper.InkFaint),
     )
     MaterialTheme(colorScheme = colors, typography = typography, content = content)
 }

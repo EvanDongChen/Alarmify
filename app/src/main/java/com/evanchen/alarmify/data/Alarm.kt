@@ -9,7 +9,8 @@ import java.time.ZonedDateTime
 
 /**
  * One alarm. [days] holds java.time DayOfWeek values (1 = Monday … 7 = Sunday); empty means it rings once.
- * Quick alarms ring at a fixed instant ([fireAt]) and are removed once dismissed.
+ * [fireAt] pins a one-time alarm to an exact instant (a quick alarm set "in 10 min" rings to the second);
+ * once that has passed it behaves like any other one-time alarm at [hour]:[minute].
  */
 data class Alarm(
     val id: Int,
@@ -19,7 +20,6 @@ data class Alarm(
     val enabled: Boolean = true,
     val label: String = "",
     val vibrate: Boolean = true,
-    val quick: Boolean = false,
     val fireAt: Long? = null,
     val snoozedUntil: Long? = null,
 ) {
@@ -29,7 +29,7 @@ data class Alarm(
     fun nextTrigger(nowMs: Long = System.currentTimeMillis(), zone: ZoneId = ZoneId.systemDefault()): Long? {
         snoozedUntil?.let { if (it > nowMs) return it }
         if (!enabled) return null
-        if (quick) return fireAt?.takeIf { it > nowMs }
+        fireAt?.let { if (it > nowMs && !repeats) return it }
 
         val now = ZonedDateTime.ofInstant(Instant.ofEpochMilli(nowMs), zone)
         val time = LocalTime.of(hour, minute)
@@ -50,7 +50,6 @@ data class Alarm(
         put("enabled", enabled)
         put("label", label)
         put("vibrate", vibrate)
-        put("quick", quick)
         fireAt?.let { put("fireAt", it) }
         snoozedUntil?.let { put("snoozedUntil", it) }
     }
@@ -66,7 +65,6 @@ data class Alarm(
                 enabled = o.optBoolean("enabled", true),
                 label = o.optString("label", ""),
                 vibrate = o.optBoolean("vibrate", true),
-                quick = o.optBoolean("quick", false),
                 fireAt = if (o.has("fireAt")) o.getLong("fireAt") else null,
                 snoozedUntil = if (o.has("snoozedUntil")) o.getLong("snoozedUntil") else null,
             )

@@ -46,39 +46,29 @@ object AlarmRepository {
         mutate { list -> list.filterNot { it.id == id } }
     }
 
-    fun setEnabled(id: Int, enabled: Boolean) = update(id) { it.copy(enabled = enabled, snoozedUntil = null) }
+    fun setEnabled(id: Int, enabled: Boolean) =
+        update(id) { it.copy(enabled = enabled, snoozedUntil = null, fireAt = it.fireAt?.takeIf { enabled }) }
 
-    /** A quick alarm that rings [minutes] from now. */
-    fun addQuick(minutes: Int, label: String = ""): Alarm {
-        val at = System.currentTimeMillis() + minutes * 60_000L
-        return addQuickAt(at, label)
-    }
-
-    /** A quick alarm that rings at an exact instant. */
-    fun addQuickAt(at: Long, label: String = ""): Alarm {
+    /** A quick alarm: an ordinary one-time alarm that rings exactly at [at]. */
+    fun addOneTimeAt(at: Long, label: String = ""): Alarm {
         val t = Instant.ofEpochMilli(at).atZone(ZoneId.systemDefault())
-        val alarm = Alarm(
-            id = newId(), hour = t.hour, minute = t.minute,
-            quick = true, fireAt = at, label = label,
-        )
+        val alarm = Alarm(id = newId(), hour = t.hour, minute = t.minute, fireAt = at, label = label)
         upsert(alarm)
         return alarm
     }
 
     /** Called the moment an alarm goes off. */
     fun onFired(id: Int) = update(id) { a ->
-        when {
-            a.quick || !a.repeats -> a.copy(enabled = false, snoozedUntil = null)
-            else -> a.copy(snoozedUntil = null) // repeating: the next occurrence gets scheduled straight away
-        }
+        // One-time alarms switch off (and stay in the list); repeating ones get their next ring scheduled.
+        if (a.repeats) a.copy(snoozedUntil = null) else a.copy(enabled = false, snoozedUntil = null, fireAt = null)
     }
 
     fun snooze(id: Int, minutes: Int = SNOOZE_MINUTES) =
         update(id) { it.copy(snoozedUntil = System.currentTimeMillis() + minutes * 60_000L) }
 
     fun dismiss(id: Int) {
-        val a = get(id) ?: return
-        if (a.quick) delete(id) else update(id) { it.copy(snoozedUntil = null) }
+        if (get(id) == null) return
+        update(id) { it.copy(snoozedUntil = null) }
     }
 
     /** Re-registers every alarm with AlarmManager (after boot, time change, app update). */
@@ -88,11 +78,7 @@ object AlarmRepository {
 
     private fun mutate(f: (List<Alarm>) -> List<Alarm>) {
         val updated = synchronized(this) {
-            val now = System.currentTimeMillis()
-            // Quick alarms whose moment has passed without ringing (e.g. phone was off) are cleaned up.
-            val next = f(_alarms.value).filterNot {
-                it.quick && it.nextTrigger(now) == null && (it.fireAt ?: 0L) < now - STALE_QUICK_MS
-            }
+            val next = f(_alarms.value)
             _alarms.value = next
             prefs.edit().putString(KEY_LIST, JSONArray(next.map { it.toJson() }).toString()).apply()
             next
@@ -111,5 +97,4 @@ object AlarmRepository {
     private const val PREFS = "alarmify"
     private const val KEY_LIST = "alarms"
     private const val KEY_NEXT_ID = "next_id"
-    private const val STALE_QUICK_MS = 6 * 60 * 60 * 1000L
 }

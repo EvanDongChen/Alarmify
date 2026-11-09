@@ -1,20 +1,12 @@
 package com.evanchen.alarmify.ui
 
 import android.text.format.DateFormat
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,57 +15,54 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Alarm
-import androidx.compose.material.icons.rounded.Bolt
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Snackbar
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.evanchen.alarmify.data.Alarm
 import com.evanchen.alarmify.data.AlarmRepository
 import kotlinx.coroutines.launch
 
-private enum class Tab { Alarms, Quick }
+/** Something that would stop alarms ringing, and how to fix it. */
+data class Fix(val title: String, val body: String, val action: String, val onFix: () -> Unit)
 
 @Composable
 fun MainScreen(alarms: List<Alarm>, fixes: List<Fix>) {
     val context = LocalContext.current
     val is24 = remember { DateFormat.is24HourFormat(context) }
-    var tab by rememberSaveable { mutableStateOf(Tab.Alarms) }
-    // null = closed, Alarm(id = -1) = new alarm, otherwise the one being edited.
+    val now by rememberNow()
     var editing by remember { mutableStateOf<Alarm?>(null) }
     var creating by remember { mutableStateOf(false) }
+    var quick by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -85,83 +74,89 @@ fun MainScreen(alarms: List<Alarm>, fixes: List<Fix>) {
         }
     }
 
-    fun ringsIn(a: Alarm) = a.nextTrigger()?.let { "Rings in ${formatDuration(it - System.currentTimeMillis())}" } ?: "Saved"
+    fun ringsIn(a: Alarm): String =
+        a.nextTrigger()?.let { "Rings in ${formatDurationLong(it - System.currentTimeMillis())}" } ?: "Saved"
 
-    val glow by animateColorAsState(
-        if (tab == Tab.Alarms) Palette.Dawn else Palette.Mint, tween(700), label = "glow",
-    )
+    val sorted = alarms.sortedWith(compareBy({ it.hour }, { it.minute }, { it.id }))
+    val next = alarms.mapNotNull { a -> a.nextTrigger(now)?.let { a.id to it } }.minByOrNull { it.second }
 
-    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Palette.Night0, Palette.Night1)))) {
-        // A soft light from over the horizon, warm for alarms and cool for quick ones.
-        Canvas(Modifier.fillMaxSize()) {
-            drawCircle(
-                Brush.radialGradient(
-                    listOf(glow.copy(alpha = 0.22f), Color.Transparent),
-                    center = Offset(size.width * 0.85f, -size.width * 0.1f), radius = size.width * 1.1f,
-                ),
-                radius = size.width * 1.1f, center = Offset(size.width * 0.85f, -size.width * 0.1f),
-            )
-        }
+    Box(Modifier.fillMaxSize().background(Paper.Page)) {
+        LazyColumn(
+            Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 24.dp, end = 24.dp, bottom = 120.dp),
+        ) {
+            item {
+                Column(Modifier.statusBarsPadding().padding(top = 28.dp, bottom = 20.dp)) {
+                    Text("Alarms", style = MaterialTheme.typography.headlineLarge)
+                    Text(
+                        nextLine(next?.second, now, is24),
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontFamily = Serif, fontStyle = FontStyle.Italic, fontSize = 19.sp, color = Paper.InkSoft,
+                        ),
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
+            }
+            items(fixes, key = { it.title }) { fix -> Notice(fix.title, fix.body, fix.action, fix.onFix) }
+            item { Rule() }
 
-        AnimatedContent(
-            targetState = tab,
-            transitionSpec = {
-                val dir = if (targetState == Tab.Quick) 1 else -1
-                (fadeIn(tween(250)) + slideInHorizontally(tween(300)) { dir * it / 6 }) togetherWith
-                    (fadeOut(tween(200)) + slideOutHorizontally(tween(300)) { -dir * it / 6 })
-            },
-            label = "tab",
-        ) { t ->
-            when (t) {
-                Tab.Alarms -> AlarmsScreen(
-                    alarms = alarms,
-                    fixes = fixes,
-                    onToggle = { a, on ->
-                        AlarmRepository.setEnabled(a.id, on)
-                        if (on) AlarmRepository.get(a.id)?.let { toast(ringsIn(it)) }
-                    },
-                    onEdit = { editing = it },
-                    onDelete = { a ->
-                        AlarmRepository.delete(a.id)
-                        toast("Alarm deleted") { AlarmRepository.upsert(a) }
-                    },
-                )
-                Tab.Quick -> QuickScreen(
-                    alarms = alarms,
-                    onStart = { m ->
-                        val a = AlarmRepository.addQuick(m)
-                        toast("Rings at ${formatClockAt(is24, a.fireAt!!)} · in ${minutesLabel(m)}") { AlarmRepository.delete(a.id) }
-                    },
-                    onStartAt = { at ->
-                        val a = AlarmRepository.addQuickAt(at, "Wake up")
-                        toast("${relativeDay(at)} ${formatClockAt(is24, at)} · ${ringsIn(a).lowercase()}") { AlarmRepository.delete(a.id) }
-                    },
-                    onCancel = { a ->
-                        AlarmRepository.delete(a.id)
-                        toast("Quick alarm cancelled") { AlarmRepository.upsert(a) }
-                    },
-                )
+            if (sorted.isEmpty()) {
+                item { EmptyState() }
+            } else {
+                items(sorted, key = { it.id }) { alarm ->
+                    Column(Modifier.animateItem()) {
+                        SwipeToDelete(onDelete = {
+                            AlarmRepository.delete(alarm.id)
+                            toast("Alarm deleted") { AlarmRepository.upsert(alarm) }
+                        }) {
+                            AlarmRow(
+                                alarm, now, is24,
+                                isNext = alarm.id == next?.first,
+                                onToggle = { on ->
+                                    AlarmRepository.setEnabled(alarm.id, on)
+                                    if (on) AlarmRepository.get(alarm.id)?.let { toast(ringsIn(it)) }
+                                },
+                                onClick = { editing = alarm },
+                            )
+                        }
+                        Rule()
+                    }
+                }
             }
         }
 
-        // Floating nav: Alarms · + · Quick
-        Column(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 16.dp)) {
-            SnackbarHost(snackbar, Modifier.padding(horizontal = 20.dp)) { data ->
-                Snackbar(
-                    data,
-                    shape = RoundedCornerShape(20.dp),
-                    containerColor = Palette.Night2,
-                    contentColor = Palette.Text,
-                    actionColor = glow,
-                )
+        // Bottom actions, within thumb reach.
+        Column(
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Paper.Page).navigationBarsPadding(),
+        ) {
+            SnackbarHost(snackbar, Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) { data ->
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Paper.Ink)
+                        .padding(start = 18.dp, end = 8.dp).height(52.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        data.visuals.message,
+                        style = MaterialTheme.typography.bodyMedium.copy(color = Paper.Page),
+                        modifier = Modifier.weight(1f),
+                    )
+                    data.visuals.actionLabel?.let { label ->
+                        Text(
+                            label,
+                            style = MaterialTheme.typography.labelLarge.copy(color = Color(0xFFFF8A70)),
+                            modifier = Modifier.pressable({ data.performAction() }).padding(10.dp),
+                        )
+                    }
+                }
             }
-            Spacer(Modifier.height(8.dp))
-            NavBar(
-                tab = tab,
-                accent = glow,
-                onTab = { tab = it },
-                onAdd = { creating = true },
-            )
+            Rule()
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                PaperButton("+  New alarm", Modifier.weight(1f), kind = ButtonKind.Outline) { creating = true }
+                PaperButton("Quick alarm", Modifier.weight(1f), kind = ButtonKind.Accent) { quick = true }
+            }
         }
     }
 
@@ -169,11 +164,7 @@ fun MainScreen(alarms: List<Alarm>, fixes: List<Fix>) {
         AlarmEditor(
             initial = editing,
             newId = { AlarmRepository.newId() },
-            onSave = { a ->
-                AlarmRepository.upsert(a)
-                tab = Tab.Alarms
-                toast(ringsIn(a))
-            },
+            onSave = { a -> AlarmRepository.upsert(a); toast(ringsIn(a)) },
             onDelete = { a ->
                 AlarmRepository.delete(a.id)
                 toast("Alarm deleted") { AlarmRepository.upsert(a) }
@@ -181,51 +172,103 @@ fun MainScreen(alarms: List<Alarm>, fixes: List<Fix>) {
             onDismiss = { creating = false; editing = null },
         )
     }
-}
 
-@Composable
-private fun androidx.compose.foundation.layout.ColumnScope.NavBar(tab: Tab, accent: Color, onTab: (Tab) -> Unit, onAdd: () -> Unit) {
-    Row(
-        Modifier
-            .align(Alignment.CenterHorizontally)
-            .shadow(24.dp, CircleShape)
-            .clip(CircleShape)
-            .background(Palette.Night2.copy(alpha = 0.92f))
-            .border(1.dp, Palette.GlassBorder, CircleShape)
-            .padding(6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        NavItem("Alarms", Icons.Rounded.Alarm, tab == Tab.Alarms, Palette.Dawn) { onTab(Tab.Alarms) }
-        Box(
-            Modifier
-                .size(56.dp)
-                .clip(CircleShape)
-                .background(Palette.dawnBrush)
-                .pressable(onAdd)
-                .semantics { contentDescription = "New alarm" },
-            contentAlignment = Alignment.Center,
-        ) { Icon(Icons.Rounded.Add, null, tint = Palette.Night0, modifier = Modifier.size(30.dp)) }
-        NavItem("Quick", Icons.Rounded.Bolt, tab == Tab.Quick, Palette.Mint) { onTab(Tab.Quick) }
+    if (quick) {
+        QuickSheet(
+            onPick = { at, label ->
+                val a = AlarmRepository.addOneTimeAt(at, label)
+                toast("Set for ${formatClockAt(is24, at).lowercase()}, in ${formatDurationLong(at - System.currentTimeMillis())}") {
+                    AlarmRepository.delete(a.id)
+                }
+            },
+            onDismiss = { quick = false },
+        )
     }
 }
 
+private fun nextLine(at: Long?, now: Long, is24: Boolean): String =
+    if (at == null) "Nothing set to ring."
+    else "Next ${dayPhrase(at)} at ${formatClockAt(is24, at).lowercase()}, in ${formatDurationLong(at - now)}."
+
 @Composable
-private fun NavItem(label: String, icon: ImageVector, selected: Boolean, accent: Color, onClick: () -> Unit) {
-    val bg by animateColorAsState(if (selected) accent.copy(alpha = 0.16f) else Color.Transparent, label = "navBg")
-    val fg by animateColorAsState(if (selected) accent else Palette.TextDim, label = "navFg")
+private fun AlarmRow(
+    alarm: Alarm,
+    now: Long,
+    is24: Boolean,
+    isNext: Boolean,
+    onToggle: (Boolean) -> Unit,
+    onClick: () -> Unit,
+) {
+    val snoozed = (alarm.snoozedUntil ?: 0) > now
+    val active = alarm.enabled || snoozed
+    val ink by animateColorAsState(if (active) Paper.Ink else Paper.InkFaint, label = "ink")
+    val at = alarm.nextTrigger(now)
+
     Row(
         Modifier
-            .height(56.dp)
-            .clip(CircleShape)
-            .background(bg)
-            .pressable(onClick, role = Role.Tab)
-            .semantics { this.selected = selected }
-            .padding(horizontal = 20.dp),
+            .fillMaxWidth()
+            .background(Paper.Page)
+            .pressable(onClick, haptic = false)
+            .padding(vertical = 16.dp)
+            .semantics(mergeDescendants = true) {},
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, null, tint = fg)
-        Spacer(Modifier.width(8.dp))
-        Text(label, color = fg, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+        Column(Modifier.weight(1f)) {
+            TimeText(alarm.hour, alarm.minute, is24, 56.sp, color = ink)
+            val detail = buildAnnotatedString {
+                val parts = listOfNotNull(
+                    alarm.label.takeIf { it.isNotBlank() },
+                    when {
+                        snoozed -> "Snoozed until ${formatClockAt(is24, alarm.snoozedUntil!!).lowercase()}"
+                        alarm.repeats -> repeatSummary(alarm.days)
+                        at != null -> "Once, ${dayPhrase(at)}"
+                        else -> "Once"
+                    },
+                )
+                append(parts.joinToString(" · "))
+                if (isNext && at != null && at - now < 24 * 3_600_000L) {
+                    append(" · ")
+                    withStyle(SpanStyle(color = Paper.Red)) { append("in ${formatDuration(at - now)}") }
+                }
+            }
+            Text(detail, style = MaterialTheme.typography.bodyMedium.copy(color = if (active) Paper.InkSoft else Paper.InkFaint), maxLines = 1)
+        }
+        Spacer(Modifier.size(12.dp))
+        PaperSwitch(alarm.enabled, onToggle)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SwipeToDelete(onDelete: () -> Unit, content: @Composable () -> Unit) {
+    val state = rememberSwipeToDismissBoxState(confirmValueChange = {
+        if (it == SwipeToDismissBoxValue.EndToStart) { onDelete(); true } else false
+    })
+    SwipeToDismissBox(
+        state = state,
+        enableDismissFromStartToEnd = false,
+        backgroundContent = {
+            if (state.dismissDirection != SwipeToDismissBoxValue.EndToStart) return@SwipeToDismissBox
+            Box(Modifier.fillMaxSize().background(Paper.Red), contentAlignment = Alignment.CenterEnd) {
+                Text("Delete", style = MaterialTheme.typography.labelLarge.copy(color = Paper.Page), modifier = Modifier.padding(end = 20.dp))
+            }
+        },
+    ) { content() }
+}
+
+@Composable
+private fun EmptyState() {
+    Column(Modifier.fillMaxWidth().padding(top = 48.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(Modifier.size(10.dp).clip(CircleShape).background(Paper.Red))
+        Text(
+            "No alarms yet.",
+            style = MaterialTheme.typography.headlineLarge.copy(fontSize = 28.sp, fontStyle = FontStyle.Italic),
+            modifier = Modifier.padding(top = 16.dp),
+        )
+        Text(
+            "Make one with New alarm,\nor use Quick alarm for a nap.",
+            style = MaterialTheme.typography.bodyMedium.copy(color = Paper.InkSoft, textAlign = androidx.compose.ui.text.style.TextAlign.Center),
+            modifier = Modifier.padding(top = 6.dp),
+        )
     }
 }

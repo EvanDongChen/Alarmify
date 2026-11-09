@@ -152,7 +152,7 @@ class AlarmService : Service() {
             Intent(this, RingActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_USER_ACTION),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        val title = alarm.label.ifBlank { if (alarm.quick) "Quick alarm" else "Alarm" }
+        val title = alarm.label.ifBlank { "Alarm" }
         val (time, suffix) = formatClock(this, alarm.hour, alarm.minute)
         return NotificationCompat.Builder(this, AlarmifyApp.CHANNEL_RINGING)
             .setSmallIcon(R.drawable.ic_stat_alarm)
@@ -162,7 +162,7 @@ class AlarmService : Service() {
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)
-            .setColor(0xFFFF8A5B.toInt())
+            .setColor(0xFFC8371D.toInt())
             .setContentIntent(ringScreen)
             .setFullScreenIntent(ringScreen, true)
             .addAction(0, "Snooze ${AlarmRepository.SNOOZE_MINUTES} min", servicePending(this, ACTION_SNOOZE, alarm.id))
