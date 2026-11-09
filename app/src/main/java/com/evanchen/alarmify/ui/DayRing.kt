@@ -3,7 +3,10 @@ package com.evanchen.alarmify.ui
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -123,14 +126,28 @@ fun DayRing(
     // Which face is showing, and the flip between them (0° = AM up, 180° = PM up).
     var face by rememberSaveable { mutableStateOf(if (nowT.hour >= 12) PM else AM) }
     val flip = remember { Animatable(face * 180f) }
-    fun showFace(f: Int) {
+    // How high the coin is tossed: 0 resting, 1 at the top of the toss (a little below 0 as it lands).
+    val lift = remember { Animatable(0f) }
+    /** Flip the dial over like a coin: it lifts, turns over once ([dir] picks which way), and lands with a small bounce. */
+    fun showFace(f: Int, dir: Int = if (f == PM) 1 else -1) {
         if (f == face) return
         face = f
         haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-        scope.launch { flip.animateTo(f * 180f, spring(dampingRatio = 0.72f, stiffness = Spring.StiffnessLow)) }
+        val target = flip.targetValue + dir * 180f
+        scope.launch {
+            launch {
+                lift.animateTo(1f, tween(240, easing = LinearOutSlowInEasing))
+                lift.animateTo(0f, tween(240, easing = FastOutLinearInEasing))
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress) // it lands
+                lift.animateTo(-0.07f, tween(70))
+                lift.animateTo(0f, spring(dampingRatio = 0.35f, stiffness = 700f))
+            }
+            flip.animateTo(target, tween(480, easing = CubicBezierEasing(0.4f, 0f, 0.2f, 1f)))
+        }
     }
-    // The face actually drawn: whichever side is towards you mid-flip.
-    val shown = if (flip.value < 90f) AM else PM
+    // The face actually drawn: whichever side is towards you mid-spin.
+    val turn = ((flip.value % 360f) + 360f) % 360f
+    val shown = if (turn > 90f && turn < 270f) PM else AM
 
     // The arc to the next alarm grows in when it changes.
     val grow = remember { Animatable(0f) }
@@ -221,7 +238,7 @@ fun DayRing(
                                 change.consume()
                                 if (!change.pressed) break
                             }
-                            if (abs(dx) > 40.dp.toPx()) showFace(1 - currentFace)
+                            if (abs(dx) > 40.dp.toPx()) showFace(1 - currentFace, if (dx > 0) 1 else -1)
                             return@awaitEachGesture
                         }
 
@@ -248,6 +265,43 @@ fun DayRing(
                 },
             contentAlignment = Alignment.Center,
         ) {
+            // The coin's shadow on the sea floor: it shrinks and fades as the coin rises.
+            Canvas(Modifier.fillMaxSize()) {
+                val up = lift.value.coerceAtLeast(0f)
+                if (up <= 0.01f) return@Canvas
+                val r = ringRadius(size, density)
+                val w = r * (1.1f - 0.45f * up)
+                drawOval(
+                    Night.Bg.copy(alpha = 0.55f * up),
+                    topLeft = Offset(center.x - w, center.y + r * 1.02f - 7.dp.toPx()),
+                    size = Size(w * 2, 14.dp.toPx()),
+                )
+            }
+            // The coin: tossed up and scaled as it comes towards you.
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        val up = lift.value
+                        scaleX = 1f + 0.13f * up
+                        scaleY = 1f + 0.13f * up - if (up < 0f) 0.4f * up else 0f // a squash as it lands
+                        translationY = -up.coerceAtLeast(0f) * 30.dp.toPx()
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+            // While it spins it's a solid coin, so side-on you see its rim rather than nothing.
+            Canvas(Modifier.fillMaxSize()) {
+                val up = lift.value.coerceAtLeast(0f)
+                if (up <= 0.01f && abs(turn % 180f) < 0.5f) return@Canvas
+                val r = ringRadius(size, density) + 4.dp.toPx()
+                val rad = flip.value * PI.toFloat() / 180f
+                val face = abs(cos(rad))
+                val rim = 7.dp.toPx() * abs(sin(rad))
+                val w = r * face + rim
+                val solid = (up * 1.6f).coerceIn(0f, 1f)
+                drawOval(Night.Raised.copy(alpha = 0.95f * solid), Offset(center.x - w, center.y - r), Size(w * 2, r * 2))
+                drawOval(Night.FgFaint.copy(alpha = 0.7f * solid), Offset(center.x - w, center.y - r), Size(w * 2, r * 2), style = Stroke(1.5.dp.toPx()))
+            }
             // The flipping face.
             Box(
                 Modifier
@@ -325,6 +379,8 @@ fun DayRing(
                 }
             }
 
+            }
+
             // The middle: the countdown, or the time you're scrubbing to.
             AnimatedContent(
                 targetState = scrub != null,
@@ -369,7 +425,7 @@ fun DayRing(
             face = face,
             amAlarms = alarms.any { it.enabled && it.hour < 12 },
             pmAlarms = alarms.any { it.enabled && it.hour >= 12 },
-            onFace = ::showFace,
+            onFace = { showFace(it) },
             modifier = Modifier.padding(top = 4.dp),
         )
     }
