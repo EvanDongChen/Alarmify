@@ -13,7 +13,7 @@ Jetpack Compose.
 ## Download
 
 **[Download Alarmify.apk](https://github.com/EvanDongChen/Alarmify/raw/feature/alarm-app/apk/Alarmify.apk)**
-(2.7 MB, Android 10 or newer). It's also in the repo at [`apk/Alarmify.apk`](apk/Alarmify.apk).
+(2.9 MB, Android 10 or newer). It's also in the repo at [`apk/Alarmify.apk`](apk/Alarmify.apk).
 
 To install it, open that link on your phone, download the file and tap it. Android will ask you to allow your
 browser to install apps the first time ("Install unknown apps"); allow it, then tap **Install**.
@@ -33,14 +33,17 @@ times as you like to add up a total. The popup shows the total and the time it w
 saves it as a one-time alarm in your list, accurate to the second.
 
 **Place alarm.** Wake up before your stop. Search for a station, address or anywhere: results appear as you type,
-nearest first, with places you've used before at the top. Pick how close you need to get (100 m to 2 km) on a
-sonar that shows the destination as a coral buoy and you as a fish swimming towards it, then tap **Start**. It
+nearest first, with places you've used before at the top. Then a map opens on the spot: drag it (and pinch to
+zoom) to fine-tune exactly where it should ring, like dropping a pin in a transit app. The destination is a
+coral buoy fixed in the middle with a dashed ring for how close you need to get, and you're the fish. Pick
+100 m to 2 km, then tap **Start**. It
 rings once when you're within that distance, then it's done. While it's watching, the alarm list shows how far
 you have left, and so does a quiet notification.
 
 <p align="center">
   <img src="docs/screenshots/place-search.png" width="200" alt="Place alarm: searching for Waterfront" />
-  <img src="docs/screenshots/place-setup.png" width="200" alt="Place alarm: the sonar and distance picker" />
+  <img src="docs/screenshots/place-setup.png" width="200" alt="Place alarm: the map and distance picker" />
+  <img src="docs/screenshots/place-map-moved.png" width="200" alt="Dragging the map to move the spot" />
   <img src="docs/screenshots/place-ringing.png" width="200" alt="Place alarm ringing on arrival" />
 </p>
 
@@ -103,7 +106,8 @@ the app needs to ring on time and over the lock screen.
   the phone, Android only shows that as a banner, so with "Display over other apps" allowed the service opens the
   ringing screen itself.
 - **Place alarms.** Search uses [Photon](https://photon.komoot.io) (OpenStreetMap data), with Android's geocoder
-  as a fallback. While a place alarm is active, a location service watches where you are: rarely and at low power
+  as a fallback. The map is [osmdroid](https://github.com/osmdroid/osmdroid) showing Esri's dark grey basemap
+  (no API key), tinted to the app's teal; the ring, buoy and fish are drawn on top in Compose. While a place alarm is active, a location service watches where you are: rarely and at low power
   when you're far away, more often as you get close, and not at all once nothing is left to watch. Arriving rings
   through the system alarm clock, so it works with the app closed.
 - **Headphones.** Android's alarm sound always plays out loud, even with headphones in. So when headphones are
@@ -123,7 +127,7 @@ app/src/main/java/com/evanchen/alarmify/
   alarm/      AlarmScheduler (talks to AlarmManager), AlarmReceiver, BootReceiver
   ring/       AlarmService (sound, vibration, headphones), RingActivity and RingScreen
   place/      PlaceSearch (autocomplete), PlaceTrackingService (watches location, rings on arrival)
-  ui/         MainScreen, DayRing, QuickSheet, PlaceSheet, Sonar, AlarmEditor, WheelPicker, Ocean (the water),
+  ui/         MainScreen, DayRing, QuickSheet, PlaceSheet, PlaceMap, Sonar, AlarmEditor, WheelPicker, Ocean (the water),
               Fish, Ambient (the battery-friendly animation clock), Theme, Components, Format
 ```
 

@@ -163,9 +163,9 @@ fun PlaceSheet(onStarted: (PlaceAlarm) -> Unit, onDismiss: () -> Unit) {
                     place = place,
                     here = here,
                     onBack = { picked = null },
-                    onStart = { radius, vibrate ->
+                    onStart = { spot, radius, vibrate ->
                         val go = {
-                            val alarm = PlaceRepository.start(place, radius, vibrate)
+                            val alarm = PlaceRepository.start(spot, radius, vibrate)
                             close { onStarted(alarm) }
                         }
                         if (PlaceRepository.hasLocationPermission(context)) go()
@@ -371,21 +371,26 @@ private fun highlight(text: String, query: String) = buildAnnotatedString {
 // Step 2: how close, then start
 
 @Composable
-private fun SetupStep(place: Place, here: LatLon?, onBack: () -> Unit, onStart: (radiusM: Int, vibrate: Boolean) -> Unit) {
+private fun SetupStep(place: Place, here: LatLon?, onBack: () -> Unit, onStart: (spot: Place, radiusM: Int, vibrate: Boolean) -> Unit) {
     val context = LocalContext.current
     var radius by remember { mutableIntStateOf(500) }
     var vibrate by remember { mutableStateOf(true) }
     var pops by remember { mutableIntStateOf(0) }
-    val dist = here?.let { place.distanceTo(it.lat, it.lon) }
+    // Where the alarm will ring: the place you picked, nudged by dragging the map.
+    var spot by remember(place) { mutableStateOf(LatLon(place.lat, place.lon)) }
+    var resets by remember { mutableIntStateOf(0) }
+    val pinned = place.copy(lat = spot.lat, lon = spot.lon)
+    val moved = place.distanceTo(spot.lat, spot.lon)
+    val dist = here?.let { pinned.distanceTo(it.lat, it.lon) }
     val precise = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
     val anyLocation = PlaceRepository.hasLocationPermission(context)
 
     Column(
-        Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding()
-            .padding(horizontal = 20.dp).padding(bottom = 20.dp),
+        Modifier.fillMaxWidth().fillMaxHeight(0.94f).navigationBarsPadding()
+            .padding(horizontal = 20.dp).padding(bottom = 16.dp),
     ) {
         Row(
-            Modifier.padding(top = 8.dp).clip(CircleShape).pressable(onBack).padding(vertical = 6.dp, horizontal = 4.dp),
+            Modifier.padding(top = 4.dp).clip(CircleShape).pressable(onBack).padding(vertical = 6.dp, horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(Icons.AutoMirrored.Rounded.ArrowBack, null, tint = Night.FgSoft, modifier = Modifier.size(18.dp))
@@ -393,15 +398,39 @@ private fun SetupStep(place: Place, here: LatLon?, onBack: () -> Unit, onStart: 
             Text("Change place", style = MaterialTheme.typography.labelLarge.copy(color = Night.FgSoft))
         }
 
-        Text(place.name, style = MaterialTheme.typography.headlineLarge.copy(fontSize = 30.sp), modifier = Modifier.padding(top = 8.dp, start = 4.dp))
+        Text(
+            place.name, style = MaterialTheme.typography.headlineLarge.copy(fontSize = 28.sp),
+            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp, start = 4.dp),
+        )
         if (place.address.isNotBlank()) {
-            Text(place.address, style = MaterialTheme.typography.bodyMedium.copy(color = Night.FgSoft), modifier = Modifier.padding(start = 4.dp))
+            Text(
+                place.address, style = MaterialTheme.typography.bodyMedium.copy(color = Night.FgSoft),
+                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 4.dp),
+            )
         }
 
-        Sonar(
-            place, radius, here,
-            Modifier.padding(vertical = 14.dp).widthIn(max = 300.dp).fillMaxWidth().aspectRatio(1f).align(Alignment.CenterHorizontally),
+        PlaceMap(
+            start = LatLon(place.lat, place.lon),
+            radiusM = radius,
+            here = here,
+            onCenterChange = { spot = it },
+            modifier = Modifier.padding(top = 12.dp).fillMaxWidth().weight(1f),
+            recenter = resets,
         )
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp, start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                if (moved < 15f) "Drag the map to fine-tune the spot." else "Spot moved ${formatDistance(moved)} from ${place.name}.",
+                style = MaterialTheme.typography.bodySmall.copy(color = Night.FgFaint),
+                modifier = Modifier.weight(1f),
+            )
+            if (moved >= 15f) {
+                Text(
+                    "Reset",
+                    style = MaterialTheme.typography.labelLarge.copy(color = Night.Accent),
+                    modifier = Modifier.clip(CircleShape).pressable({ resets++ }).padding(horizontal = 8.dp, vertical = 2.dp),
+                )
+            }
+        }
         Text(
             when {
                 dist == null && !anyLocation -> "Allow location so Alarmify can tell when you're close."
@@ -410,16 +439,15 @@ private fun SetupStep(place: Place, here: LatLon?, onBack: () -> Unit, onStart: 
                 else -> "You're ${formatDistance(dist)} away."
             },
             style = MaterialTheme.typography.bodyLarge.copy(fontFamily = Serif, fontStyle = FontStyle.Italic, fontSize = 19.sp, color = Night.FgSoft),
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(start = 4.dp, top = 2.dp),
         )
 
-        SectionLabel("Ring when I'm within", Modifier.padding(top = 22.dp, bottom = 10.dp, start = 4.dp))
+        SectionLabel("Ring when I'm within", Modifier.padding(top = 14.dp, bottom = 10.dp, start = 4.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             RADII.forEach { m -> Chip(formatDistance(m.toFloat()), radius == m, Modifier.weight(1f)) { radius = m } }
         }
 
-        Row(Modifier.fillMaxWidth().padding(top = 18.dp, start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().padding(top = 12.dp, start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Vibrate", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
             PaperSwitch(vibrate, { vibrate = it }, "Vibrate")
         }
@@ -439,22 +467,16 @@ private fun SetupStep(place: Place, here: LatLon?, onBack: () -> Unit, onStart: 
         val label = "Start · rings within ${formatDistance(radius.toFloat())}"
         Box(
             Modifier
-                .padding(top = 18.dp)
+                .padding(top = 14.dp)
                 .bubbleBurst(pops)
                 .fillMaxWidth()
                 .height(60.dp)
                 .clip(CircleShape)
                 .background(Night.Accent)
-                .pressable({ pops++; onStart(radius, vibrate) })
+                .pressable({ pops++; onStart(pinned, radius, vibrate) })
                 .semantics { contentDescription = "Start place alarm for ${place.name}, ringing within ${formatDistance(radius.toFloat())}" },
             contentAlignment = Alignment.Center,
         ) { Text(label, style = MaterialTheme.typography.labelLarge.copy(color = Night.Bg, fontSize = 17.sp)) }
-        Text(
-            "While it's watching, a quiet notification shows how far you are. It checks less often when you're far away, to save battery.",
-            style = MaterialTheme.typography.bodySmall.copy(color = Night.FgFaint),
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth().padding(top = 10.dp, start = 12.dp, end = 12.dp),
-        )
     }
 }
 
