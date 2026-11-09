@@ -138,10 +138,10 @@ fun Pill(
             .border(1.dp, if (selected) Color.Transparent else Palette.GlassBorder, CircleShape)
             .pressable(onClick)
             .semantics { stateDescription = if (selected) "Selected" else "Not selected" }
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(horizontal = 6.dp, vertical = 12.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, color = fg, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+        Text(text, color = fg, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, maxLines = 1, softWrap = false)
     }
 }
 

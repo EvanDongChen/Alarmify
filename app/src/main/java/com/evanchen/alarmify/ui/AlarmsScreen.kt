@@ -173,7 +173,8 @@ private fun AlarmCard(alarm: Alarm, now: Long, is24: Boolean, onToggle: (Boolean
     val next = alarm.nextTrigger(now)
 
     GlassCard(
-        Modifier.fillMaxWidth().pressable(onClick, haptic = false),
+        Modifier.fillMaxWidth().pressable(onClick, haptic = false)
+            .clip(RoundedCornerShape(28.dp)).background(Palette.Night1),
         tint = if (active) Color(0x14FFFFFF) else Palette.Glass,
     ) {
         Row(Modifier.padding(horizontal = 22.dp, vertical = 18.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -211,7 +212,9 @@ private fun SwipeToDelete(onDelete: () -> Unit, modifier: Modifier = Modifier, c
         modifier = modifier,
         enableDismissFromStartToEnd = false,
         backgroundContent = {
-            val progress = state.progress.takeIf { state.dismissDirection == SwipeToDismissBoxValue.EndToStart } ?: 0f
+            // Only paint the delete layer mid-swipe; the glass card would otherwise show it through.
+            if (state.dismissDirection != SwipeToDismissBoxValue.EndToStart) return@SwipeToDismissBox
+            val progress = state.progress
             Box(
                 Modifier.fillMaxSize().clip(RoundedCornerShape(28.dp))
                     .background(Palette.Danger.copy(alpha = (0.25f + progress).coerceAtMost(0.9f))),

@@ -32,10 +32,11 @@ fun formatDuration(ms: Long): String {
     val totalMin = ((ms + 59_999) / 60_000).coerceAtLeast(0)
     if (ms < 60_000) return "under a minute"
     val d = totalMin / (60 * 24)
-    val h = (totalMin / 60) % 24
     val m = totalMin % 60
+    // Under two days, hours read better than "1d 1h".
+    val h = if (d >= 2) (totalMin / 60) % 24 else totalMin / 60
     return when {
-        d > 0 -> if (h > 0) "${d}d ${h}h" else "${d}d"
+        d >= 2 -> if (h > 0) "${d}d ${h}h" else "${d}d"
         h > 0 -> if (m > 0) "${h}h ${m}m" else "${h}h"
         else -> "$m min"
     }

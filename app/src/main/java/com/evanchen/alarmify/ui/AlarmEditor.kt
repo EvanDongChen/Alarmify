@@ -176,11 +176,12 @@ fun AlarmEditor(
             DayToggles(days) { days = it }
             Row(
                 Modifier.fillMaxWidth().padding(top = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 listOf("Once" to emptySet(), "Weekdays" to WEEKDAYS, "Weekends" to WEEKENDS, "Daily" to EVERY_DAY)
                     .forEach { (name, set) ->
-                        Pill(name, days == set, Modifier.weight(1f)) { days = set }
+                        // Longer words get a little more room so nothing wraps.
+                        Pill(name, days == set, Modifier.weight(if (name.length > 5) 1.3f else 1f)) { days = set }
                     }
             }
 

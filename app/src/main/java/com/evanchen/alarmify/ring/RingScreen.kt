@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.AlarmOff
 import androidx.compose.material.icons.rounded.Snooze
 import androidx.compose.material3.Icon
@@ -93,7 +94,7 @@ fun RingScreen(alarm: Alarm, onSnooze: () -> Unit, onStop: () -> Unit) {
     ) {
         // The sun coming up behind everything.
         Canvas(Modifier.fillMaxSize()) {
-            val c = Offset(size.width / 2f, size.height * 0.42f)
+            val c = Offset(size.width / 2f, size.height * 0.5f)
             drawCircle(
                 Brush.radialGradient(listOf(Color(0x66FFE2B8), Color.Transparent), center = c, radius = size.width * 0.9f * breathe),
                 radius = size.width * 0.9f * breathe, center = c,
@@ -103,11 +104,11 @@ fun RingScreen(alarm: Alarm, onSnooze: () -> Unit, onStop: () -> Unit) {
                 val p = (pulse + i / 3f) % 1f
                 drawCircle(
                     Color.White.copy(alpha = (1f - p) * 0.35f),
-                    radius = size.width * (0.18f + 0.4f * p), center = c,
+                    radius = size.width * (0.16f + 0.3f * p), center = c,
                     style = Stroke(width = 2.dp.toPx()),
                 )
             }
-            drawCircle(Color.White.copy(alpha = 0.18f), radius = size.width * 0.17f, center = c)
+            drawCircle(Color.White.copy(alpha = 0.18f), radius = size.width * 0.15f * breathe, center = c)
         }
 
         Column(
@@ -131,6 +132,14 @@ fun RingScreen(alarm: Alarm, onSnooze: () -> Unit, onStop: () -> Unit) {
             )
 
             Spacer(Modifier.weight(1f))
+            Icon(
+                Icons.Rounded.Alarm, null, tint = Color.White,
+                modifier = Modifier.size(56.dp).graphicsLayer {
+                    // A little ring-ring wobble.
+                    rotationZ = kotlin.math.sin(pulse * 2 * Math.PI.toFloat() * 6) * 12f
+                },
+            )
+            Spacer(Modifier.weight(1f))
 
             // Snooze is the big, easy target for a sleepy thumb…
             Box(
@@ -138,8 +147,8 @@ fun RingScreen(alarm: Alarm, onSnooze: () -> Unit, onStop: () -> Unit) {
                     .fillMaxWidth()
                     .height(72.dp)
                     .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.22f))
-                    .border(1.dp, Color.White.copy(alpha = 0.35f), CircleShape)
+                    .background(Color(0x55120E33))
+                    .border(1.dp, Color.White.copy(alpha = 0.3f), CircleShape)
                     .pressable(onSnooze),
                 contentAlignment = Alignment.Center,
             ) {
