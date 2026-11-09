@@ -1,0 +1,9 @@
+<resources>
+    <style name="Theme.Alarmify" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/night</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+    <color name="night">#FF0A0B1A</color>
+</resources>
