@@ -88,7 +88,6 @@ fun DayRing(
 
     val glow = rememberInfiniteTransition(label = "glow")
     val breath by glow.animateFloat(0.35f, 0.8f, infiniteRepeatable(tween(1800), RepeatMode.Reverse), label = "breath")
-    val sway by glow.animateFloat(-1f, 1f, infiniteRepeatable(tween(420), RepeatMode.Reverse), label = "sway")
     val rise by glow.animateFloat(0f, 1f, infiniteRepeatable(tween(14_000, easing = LinearEasing)), label = "rise")
 
     val currentAlarms by rememberUpdatedState(alarms)
@@ -184,7 +183,7 @@ fun DayRing(
             // Now: a little fish swimming round the day.
             val n = pointAt(c, r, start)
             drawCircle(Night.Bg, 15.dp.toPx(), n)
-            drawFish(n, 34.dp.toPx(), start + 90f, Night.Fg, sway = sway)
+            drawFish(n, 34.dp.toPx(), start + 90f, Night.Fg)
         }
 
         // The countdown in the middle.
