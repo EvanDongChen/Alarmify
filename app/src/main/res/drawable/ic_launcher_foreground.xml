@@ -18,10 +18,10 @@
         android:strokeColor="#FFFF7A5C"
         android:strokeWidth="2"
         android:fillColor="#00000000"
-        android:pathData="M78,44 m-3,0 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0" />
+        android:pathData="M73,45 m-3,0 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0" />
     <path
         android:strokeColor="#FFFF7A5C"
         android:strokeWidth="2"
         android:fillColor="#00000000"
-        android:pathData="M84,35 m-2,0 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0" />
+        android:pathData="M78,37 m-2,0 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0" />
 </vector>

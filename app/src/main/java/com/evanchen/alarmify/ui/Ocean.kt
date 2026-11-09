@@ -36,11 +36,11 @@ import kotlin.random.Random
 private const val TAU = (2 * PI).toFloat()
 
 /**
- * The water behind a screen: light rays from the surface, slowly falling marine snow, kelp swaying along the
- * bottom, and now and then a small school of fish crossing. Kept faint so it never competes with the content.
+ * The water behind a screen: light rays from the surface, slowly falling marine snow, and now and then a small
+ * school of fish crossing. Kept faint so it never competes with the content.
  */
 @Composable
-fun OceanBackdrop(modifier: Modifier = Modifier, kelp: Boolean = true, school: Boolean = true) {
+fun OceanBackdrop(modifier: Modifier = Modifier, school: Boolean = true) {
     val t = rememberInfiniteTransition(label = "ocean")
     // One slow clock for everything (seconds, wrapping every 120 s).
     val time by t.animateFloat(0f, 120f, infiniteRepeatable(tween(120_000, easing = LinearEasing)), label = "time")
@@ -50,7 +50,6 @@ fun OceanBackdrop(modifier: Modifier = Modifier, kelp: Boolean = true, school: B
         drawRays(time)
         drawSnow(time, snow)
         if (school) drawSchool(time)
-        if (kelp) drawKelp(time)
     }
 }
 
@@ -107,35 +106,6 @@ private fun DrawScope.drawSchool(time: Float) {
             sway = sway,
             eyeColor = Color.Transparent,
         )
-    }
-}
-
-private fun DrawScope.drawKelp(time: Float) {
-    val strands = listOf(0.04f to 210f, 0.10f to 150f, 0.15f to 110f, 0.86f to 170f, 0.93f to 230f)
-    strands.forEachIndexed { i, (x, h) ->
-        val baseX = size.width * x
-        val height = h * density
-        val path = Path()
-        val segs = 14
-        for (k in 0..segs) {
-            val f = k / segs.toFloat()
-            val sway = sin(time * TAU / listOf(8f, 10f, 12f, 15f, 20f)[i] + f * 3f + i) * 14.dp.toPx() * f
-            val px = baseX + sway
-            val py = size.height - f * height
-            if (k == 0) path.moveTo(px, py) else path.lineTo(px, py)
-        }
-        drawPath(path, Color(0xFF14404A).copy(alpha = 0.55f), style = Stroke(3.dp.toPx(), cap = StrokeCap.Round))
-        // A few leaves.
-        for (k in 2..segs step 3) {
-            val f = k / segs.toFloat()
-            val sway = sin(time * TAU / listOf(8f, 10f, 12f, 15f, 20f)[i] + f * 3f + i) * 14.dp.toPx() * f
-            val o = Offset(baseX + sway, size.height - f * height)
-            val side = if (k % 2 == 0) 1 else -1
-            drawLine(
-                Color(0xFF14404A).copy(alpha = 0.45f), o,
-                o + Offset(side * 10.dp.toPx(), -8.dp.toPx()), 2.5.dp.toPx(), StrokeCap.Round,
-            )
-        }
     }
 }
 
