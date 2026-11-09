@@ -29,6 +29,41 @@ object PlaceSearch {
         local
     }
 
+    /** What's at a spot ("200 Granville Street", "Waterfront Station"), or null if nothing useful is known. */
+    suspend fun reverse(context: Context, at: LatLon): Place? = withContext(Dispatchers.IO) {
+        runCatching { photonReverse(at) }.getOrNull()
+            ?: runCatching { geocoderReverse(context, at) }.getOrNull()
+    }
+
+    private fun photonReverse(at: LatLon): Place? {
+        val conn = (URL("https://photon.komoot.io/reverse?lang=en&lat=${at.lat}&lon=${at.lon}").openConnection() as HttpURLConnection).apply {
+            connectTimeout = 6_000
+            readTimeout = 6_000
+            setRequestProperty("User-Agent", "Alarmify/1.0 (Android alarm app)")
+        }
+        try {
+            if (conn.responseCode != 200) return null
+            val features = JSONObject(conn.inputStream.bufferedReader().readText()).getJSONArray("features")
+            if (features.length() == 0) return null
+            val p = features.getJSONObject(0).getJSONObject("properties")
+            val street = listOfNotNull(p.optStringOrNull("housenumber"), p.optStringOrNull("street")).joinToString(" ")
+            val name = p.optStringOrNull("name") ?: street.ifBlank { null } ?: return null
+            val address = listOf(street.takeIf { it != name }, p.optStringOrNull("district"), p.optStringOrNull("city"))
+                .filterNotNull().filter { it.isNotBlank() && it != name }.distinct().joinToString(", ")
+            return Place(name, address, at.lat, at.lon)
+        } finally {
+            conn.disconnect()
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun geocoderReverse(context: Context, at: LatLon): Place? {
+        if (!Geocoder.isPresent()) return null
+        val a = Geocoder(context, Locale.getDefault()).getFromLocation(at.lat, at.lon, 1)?.firstOrNull() ?: return null
+        val line = a.getAddressLine(0) ?: return null
+        return Place(line.substringBefore(","), line.substringAfter(",", "").trim(), at.lat, at.lon)
+    }
+
     private fun photon(q: String, near: LatLon?): List<Place> {
         val url = buildString {
             append("https://photon.komoot.io/api/?limit=8&lang=en&q=")

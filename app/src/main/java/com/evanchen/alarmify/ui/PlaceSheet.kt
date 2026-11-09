@@ -222,7 +222,18 @@ private fun SearchStep(here: LatLon?, onPick: (Place) -> Unit) {
             SearchState.Offline
         }
     }
-    LaunchedEffect(Unit) { delay(350); runCatching { focus.requestFocus() } }
+    // Picking on the map: the spot under the pin, and a name for it once the map settles.
+    var pin by remember { mutableStateOf<LatLon?>(null) }
+    var pinPlace by remember { mutableStateOf<Place?>(null) }
+    var naming by remember { mutableStateOf(false) }
+    LaunchedEffect(pin) {
+        val p = pin ?: return@LaunchedEffect
+        pinPlace = null
+        delay(600) // wait for the drag to settle
+        naming = true
+        pinPlace = PlaceSearch.reverse(context, p)?.copy(lat = p.lat, lon = p.lon)
+        naming = false
+    }
 
     Column(
         Modifier.fillMaxWidth().fillMaxHeight(0.92f).navigationBarsPadding().imePadding()
@@ -280,17 +291,47 @@ private fun SearchStep(here: LatLon?, onPick: (Place) -> Unit) {
             }
         }
 
-        // Results, or recent places when nothing's typed yet.
-        val showRecents = query.trim().length < 2
-        LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
-            if (showRecents) {
-                if (recents.isNotEmpty()) {
-                    item { SectionLabel("Recent", Modifier.padding(start = 4.dp, top = 12.dp, bottom = 4.dp)) }
-                    items(recents) { p -> PlaceRow(p, "", here, recent = true) { keyboard?.hide(); onPick(p) } }
-                } else {
-                    item { Hint("Search for a station, stop, address or anywhere. Results nearest you come first.") }
+        // Nothing typed: recents as quick pills, then a map around you to drop a pin on.
+        if (query.trim().length < 2) {
+            if (recents.isNotEmpty()) {
+                androidx.compose.foundation.lazy.LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
+                ) {
+                    items(recents) { p ->
+                        Row(
+                            Modifier.clip(CircleShape).border(1.dp, Night.Rule, CircleShape).pressable({ onPick(p) })
+                                .padding(horizontal = 14.dp, vertical = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(Icons.Rounded.History, null, tint = Night.FgSoft, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(p.name, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+                        }
+                    }
                 }
-            } else when (val s = state) {
+            }
+            PinPicker(
+                here = here,
+                pin = pin,
+                pinPlace = pinPlace,
+                naming = naming,
+                onMove = { pin = it },
+                onSet = { spot ->
+                    keyboard?.hide()
+                    onPick(
+                        pinPlace?.let { it.copy(name = "Near ${it.name}") }
+                            ?: Place("Dropped pin", "%.5f, %.5f".format(spot.lat, spot.lon), spot.lat, spot.lon),
+                    )
+                },
+                modifier = Modifier.fillMaxWidth().weight(1f).padding(top = 8.dp),
+            )
+            return@Column
+        }
+
+        // Typing: results as you go.
+        LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
+            when (val s = state) {
                 SearchState.Searching, SearchState.Idle -> item { Hint("Searching…") }
                 SearchState.Offline -> item { Hint("Can't search right now. Check your connection and try again.") }
                 is SearchState.Results ->
@@ -299,10 +340,85 @@ private fun SearchStep(here: LatLon?, onPick: (Place) -> Unit) {
             }
         }
         Text(
-            "Search by Photon · map data © OpenStreetMap contributors",
+            "Search by Photon · © OpenStreetMap contributors",
             style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.sp, fontWeight = FontWeight.Normal),
             modifier = Modifier.padding(vertical = 8.dp).align(Alignment.CenterHorizontally),
         )
+    }
+}
+
+/** A map centred on you with a pin in the middle: drag the map to put the pin anywhere, then set the alarm there. */
+@Composable
+private fun PinPicker(
+    here: LatLon?,
+    pin: LatLon?,
+    pinPlace: Place?,
+    naming: Boolean,
+    onMove: (LatLon) -> Unit,
+    onSet: (LatLon) -> Unit,
+    modifier: Modifier,
+) {
+    val context = LocalContext.current
+    Column(modifier) {
+        if (here == null) {
+            Box(
+                Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(24.dp)).background(Night.Bg)
+                    .border(1.dp, Night.Rule, RoundedCornerShape(24.dp)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(24.dp)) {
+                    FishGlyph(Modifier.size(width = 56.dp, height = 30.dp))
+                    Text(
+                        if (PlaceRepository.hasLocationPermission(context)) "Finding you…"
+                        else "Allow location to pick a spot on the map, or search above.",
+                        style = MaterialTheme.typography.bodyMedium.copy(color = Night.FgSoft),
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(top = 12.dp),
+                    )
+                }
+            }
+            return@Column
+        }
+        PlaceMap(
+            start = here,
+            radiusM = 0,
+            here = here,
+            onCenterChange = onMove,
+            modifier = Modifier.fillMaxWidth().weight(1f),
+        )
+        val spot = pin ?: here
+        val away = here.let { h -> Place("", "", spot.lat, spot.lon).distanceTo(h.lat, h.lon) }
+        Column(Modifier.fillMaxWidth().padding(top = 10.dp, start = 4.dp)) {
+            Text(
+                when {
+                    pin == null -> "Drag the map to put the pin where you want to wake up."
+                    pinPlace != null -> "Near ${pinPlace.name}"
+                    naming -> "Finding what's here…"
+                    else -> "Dropped pin"
+                },
+                style = MaterialTheme.typography.bodyLarge.copy(fontFamily = Serif, fontStyle = FontStyle.Italic, fontSize = 19.sp, color = Night.Fg),
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                if (pin == null) "Or search above for a station, stop or address."
+                else listOfNotNull(pinPlace?.address?.takeIf { it.isNotBlank() }, "${formatDistance(away)} from you").joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall.copy(color = Night.FgSoft),
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+        }
+        val ready = pin != null && away > 30f
+        Box(
+            Modifier.padding(top = 12.dp, bottom = 4.dp).fillMaxWidth().height(56.dp).clip(CircleShape)
+                .background(if (ready) Night.Accent else Night.Rule)
+                .pressable({ if (ready) onSet(spot) }, enabled = ready)
+                .semantics { contentDescription = if (ready) "Set alarm at the pin" else "Move the map to choose a spot first" },
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                if (ready) "Set alarm here" else "Move the map to choose a spot",
+                style = MaterialTheme.typography.labelLarge.copy(color = if (ready) Night.Bg else Night.FgFaint, fontSize = 17.sp),
+            )
+        }
     }
 }
 

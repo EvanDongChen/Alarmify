@@ -80,7 +80,8 @@ fun PlaceMap(
 
     fun fit(m: MapView, animated: Boolean) {
         val center = m.mapCenter.let { LatLon(it.latitude, it.longitude) }
-        val pad = max(currentRadius * 1.8, 300.0)
+        // With no ring yet (dropping a pin), open on a few blocks around you so nearby spots are one drag away.
+        val pad = if (currentRadius == 0) 900.0 else max(currentRadius * 1.8, 300.0)
         val pts = buildList {
             add(GeoPoint(center.lat, center.lon))
             currentHere?.let { add(GeoPoint(it.lat, it.lon)) }
@@ -128,11 +129,13 @@ fun PlaceMap(
             val centre = m.mapCenter
             val rPx = proj.metersToPixels(currentRadius.toFloat(), centre.latitude, m.zoomLevelDouble)
 
-            drawCircle(Night.Fg.copy(alpha = 0.05f), rPx, c)
-            drawCircle(
-                Night.Accent.copy(alpha = 0.85f), rPx, c,
-                style = Stroke(2.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(8.dp.toPx(), 6.dp.toPx()))),
-            )
+            if (currentRadius > 0) {
+                drawCircle(Night.Fg.copy(alpha = 0.05f), rPx, c)
+                drawCircle(
+                    Night.Accent.copy(alpha = 0.85f), rPx, c,
+                    style = Stroke(2.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(8.dp.toPx(), 6.dp.toPx()))),
+                )
+            }
 
             currentHere?.let { h ->
                 val p = proj.toPixels(GeoPoint(h.lat, h.lon), null)
