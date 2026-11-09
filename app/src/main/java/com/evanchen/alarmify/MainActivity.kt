@@ -24,6 +24,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.launch
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.evanchen.alarmify.data.AlarmRepository
+import com.evanchen.alarmify.data.PlaceRepository
 import com.evanchen.alarmify.ring.AlarmService
 import com.evanchen.alarmify.ring.RingActivity
 import com.evanchen.alarmify.ui.AlarmifyTheme
@@ -66,6 +67,8 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         refreshFixes()
+        // Keep watching for any place alarm (e.g. after the phone restarted, which stops location tracking).
+        PlaceRepository.ensureTracking()
     }
 
     /** Everything that would stop an alarm ringing loudly over the lock screen, each with a one-tap fix. */

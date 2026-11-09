@@ -132,3 +132,10 @@ fun durationWords(min: Int): String = when {
     min % 60 == 0 -> "${min / 60} hr"
     else -> "${min / 60} hr ${min % 60} min"
 }
+
+/** "350 m", "2.4 km", "38 km". */
+fun formatDistance(m: Float): String = when {
+    m < 1_000 -> "${(Math.round(m / 10f) * 10).coerceAtLeast(10)} m"
+    m < 10_000 -> "%.1f km".format(m / 1000f)
+    else -> "${Math.round(m / 1000f)} km"
+}

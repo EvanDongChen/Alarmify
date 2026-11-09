@@ -246,7 +246,7 @@ class AlarmService : Service() {
             Intent(this, RingActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_USER_ACTION),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        val title = alarm.label.ifBlank { "Alarm" }
+        val title = if (alarm.isPlace) "Nearly at ${alarm.label}" else alarm.label.ifBlank { "Alarm" }
         val (time, suffix) = formatClock(this, alarm.hour, alarm.minute)
         return NotificationCompat.Builder(this, AlarmifyApp.CHANNEL_RINGING)
             .setSmallIcon(R.drawable.ic_stat_alarm)
@@ -259,7 +259,10 @@ class AlarmService : Service() {
             .setColor(0xFFFF7A5C.toInt())
             .setContentIntent(ringScreen)
             .setFullScreenIntent(ringScreen, true)
-            .addAction(0, "Snooze ${AlarmRepository.SNOOZE_MINUTES} min", servicePending(this, ACTION_SNOOZE, alarm.id))
+            .apply {
+                // Nothing to snooze once you've arrived somewhere.
+                if (!alarm.isPlace) addAction(0, "Snooze ${AlarmRepository.SNOOZE_MINUTES} min", servicePending(this@AlarmService, ACTION_SNOOZE, alarm.id))
+            }
             .addAction(0, "Stop", servicePending(this, ACTION_DISMISS, alarm.id))
             .build()
     }
