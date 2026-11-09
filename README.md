@@ -35,7 +35,10 @@ saves it as a one-time alarm in your list, accurate to the second.
 **Place alarm.** Wake up before your stop. It opens on a map around you with a pin in the middle: drag the map to
 put the pin anywhere, see what's there ("Near Shawarma Time, 700 Hamilton Street · 600 m from you"), and tap
 **Set alarm here**. Or search for a station, address or anywhere: results appear as you type, nearest first,
-and places you've used before sit above the map as quick picks. Then a map opens on the spot: drag it (and pinch to
+and places you've used before sit above the map as quick picks.
+
+**Favourites.** Tap the star next to a place's name to save it. Favourites come first above the map as coral
+pills, one tap away; long-press one to rename it (Home, Work, School, or anything) or remove it, with undo. Then a map opens on the spot: drag it (and pinch to
 zoom) to fine-tune exactly where it should ring, like dropping a pin in a transit app. The destination is a
 coral buoy fixed in the middle with a dashed ring for how close you need to get, and you're the fish. Pick
 100 m to 2 km, then tap **Start**. It
@@ -44,6 +47,7 @@ you have left, and so does a quiet notification.
 
 <p align="center">
   <img src="docs/screenshots/place-pin.png" width="200" alt="Place alarm: dropping a pin on the map" />
+  <img src="docs/screenshots/place-favourites.png" width="200" alt="A favourite place named Home" />
   <img src="docs/screenshots/place-search.png" width="200" alt="Place alarm: searching for Waterfront" />
   <img src="docs/screenshots/place-setup.png" width="200" alt="Place alarm: the map and distance picker" />
   <img src="docs/screenshots/place-map-moved.png" width="200" alt="Dragging the map to move the spot" />

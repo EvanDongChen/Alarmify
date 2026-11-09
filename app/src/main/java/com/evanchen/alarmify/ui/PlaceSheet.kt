@@ -46,6 +46,10 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.StarOutline
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -205,6 +209,7 @@ private fun SearchStep(here: LatLon?, onPick: (Place) -> Unit) {
     var query by remember { mutableStateOf("") }
     var state by remember { mutableStateOf<SearchState>(SearchState.Idle) }
     val recents by PlaceRepository.recents.collectAsStateWithLifecycle()
+    val favourites by PlaceRepository.favourites.collectAsStateWithLifecycle()
 
     // Autocomplete: wait for a pause in typing, then search (restarts on every keystroke).
     LaunchedEffect(query, here?.let { "%.2f,%.2f".format(it.lat, it.lon) }) {
@@ -293,24 +298,7 @@ private fun SearchStep(here: LatLon?, onPick: (Place) -> Unit) {
 
         // Nothing typed: recents as quick pills, then a map around you to drop a pin on.
         if (query.trim().length < 2) {
-            if (recents.isNotEmpty()) {
-                androidx.compose.foundation.lazy.LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
-                ) {
-                    items(recents) { p ->
-                        Row(
-                            Modifier.clip(CircleShape).border(1.dp, Night.Rule, CircleShape).pressable({ onPick(p) })
-                                .padding(horizontal = 14.dp, vertical = 9.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Icon(Icons.Rounded.History, null, tint = Night.FgSoft, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text(p.name, style = MaterialTheme.typography.labelMedium, maxLines = 1)
-                        }
-                    }
-                }
-            }
+            QuickPicks(favourites, recents, onPick = { keyboard?.hide(); onPick(it) })
             PinPicker(
                 here = here,
                 pin = pin,
@@ -344,6 +332,147 @@ private fun SearchStep(here: LatLon?, onPick: (Place) -> Unit) {
             style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.sp, fontWeight = FontWeight.Normal),
             modifier = Modifier.padding(vertical = 8.dp).align(Alignment.CenterHorizontally),
         )
+    }
+}
+
+/**
+ * Favourites (starred, coral) then recent places, as one row of pills. Long-press a favourite to rename or remove it.
+ */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+private fun QuickPicks(favourites: List<Place>, recents: List<Place>, onPick: (Place) -> Unit) {
+    val others = recents.filter { r -> favourites.none { it.distanceTo(r.lat, r.lon) < 25f } }
+    var removed by remember { mutableStateOf<Pair<Place, Int>?>(null) }
+    if (favourites.isEmpty() && others.isEmpty() && removed == null) return
+    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
+    var menuFor by remember { mutableStateOf<Place?>(null) }
+    var renaming by remember { mutableStateOf<Place?>(null) }
+
+    androidx.compose.foundation.lazy.LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
+    ) {
+        items(favourites, key = { "f-${it.lat},${it.lon}" }) { p ->
+            Box {
+                Row(
+                    Modifier.clip(CircleShape)
+                        .background(Night.Accent.copy(alpha = 0.12f))
+                        .border(1.dp, Night.Accent.copy(alpha = 0.5f), CircleShape)
+                        .combinedClickable(
+                            onClick = { onPick(p) },
+                            onLongClick = {
+                                haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                                menuFor = p
+                            },
+                            onLongClickLabel = "Rename or remove",
+                        )
+                        .padding(horizontal = 14.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Rounded.Star, null, tint = Night.Accent, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(p.name, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+                }
+                androidx.compose.material3.DropdownMenu(
+                    expanded = menuFor == p,
+                    onDismissRequest = { menuFor = null },
+                    containerColor = Night.Raised,
+                    shape = RoundedCornerShape(16.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Night.Rule),
+                ) {
+                    androidx.compose.material3.DropdownMenuItem(
+                        text = { Text("Rename", style = MaterialTheme.typography.bodyLarge) },
+                        leadingIcon = { Icon(Icons.Rounded.Edit, null, tint = Night.FgSoft) },
+                        onClick = { menuFor = null; renaming = p },
+                    )
+                    androidx.compose.material3.DropdownMenuItem(
+                        text = { Text("Remove from favourites", style = MaterialTheme.typography.bodyLarge.copy(color = Night.Accent)) },
+                        leadingIcon = { Icon(Icons.Rounded.StarOutline, null, tint = Night.Accent) },
+                        onClick = {
+                            menuFor = null
+                            removed = p to favourites.indexOf(p)
+                            PlaceRepository.removeFavourite(p)
+                        },
+                    )
+                }
+            }
+        }
+        // A brief undo after removing one.
+        removed?.let { (p, index) ->
+            item(key = "undo") {
+                LaunchedEffect(p) { delay(4_000); removed = null }
+                Row(
+                    Modifier.clip(CircleShape).border(1.dp, Night.Rule, CircleShape)
+                        .pressable({ PlaceRepository.restoreFavourite(p, index); removed = null })
+                        .padding(horizontal = 14.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Removed · ", style = MaterialTheme.typography.labelMedium.copy(color = Night.FgSoft))
+                    Text("Undo", style = MaterialTheme.typography.labelMedium.copy(color = Night.Accent))
+                }
+            }
+        }
+        items(others, key = { "r-${it.lat},${it.lon}" }) { p ->
+            Row(
+                Modifier.clip(CircleShape).border(1.dp, Night.Rule, CircleShape).pressable({ onPick(p) })
+                    .padding(horizontal = 14.dp, vertical = 9.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Rounded.History, null, tint = Night.FgSoft, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(p.name, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+            }
+        }
+    }
+
+    renaming?.let { p ->
+        RenameDialog(p, onDismiss = { renaming = null }) { PlaceRepository.renameFavourite(p, it); renaming = null }
+    }
+}
+
+/** Name a favourite: "Home", "Work", "Gran's". */
+@Composable
+private fun RenameDialog(place: Place, onDismiss: () -> Unit, onSave: (String) -> Unit) {
+    var name by remember {
+        mutableStateOf(androidx.compose.ui.text.input.TextFieldValue(place.name, androidx.compose.ui.text.TextRange(0, place.name.length)))
+    }
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { delay(100); runCatching { focus.requestFocus() } }
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Column(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Night.Raised)
+                .border(1.dp, Night.Rule, RoundedCornerShape(24.dp)).padding(22.dp),
+        ) {
+            Text("Rename favourite", style = MaterialTheme.typography.headlineLarge.copy(fontSize = 26.sp))
+            Row(Modifier.padding(top = 14.dp, bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("Home", "Work", "School").forEach { suggestion ->
+                    Chip(suggestion, name.text == suggestion, Modifier.weight(1f)) {
+                        name = androidx.compose.ui.text.input.TextFieldValue(suggestion, androidx.compose.ui.text.TextRange(suggestion.length))
+                    }
+                }
+            }
+            BasicTextField(
+                value = name,
+                onValueChange = { if (it.text.length <= 40) name = it },
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyLarge.copy(fontSize = 20.sp, color = Night.Fg),
+                cursorBrush = SolidColor(Night.Accent),
+                keyboardOptions = KeyboardOptions(
+                    imeAction = ImeAction.Done,
+                    capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Words,
+                ),
+                keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { onSave(name.text) }),
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp).focusRequester(focus)
+                    .clip(RoundedCornerShape(14.dp)).background(Night.Bg)
+                    .border(1.dp, Night.Accent.copy(alpha = 0.6f), RoundedCornerShape(14.dp))
+                    .padding(horizontal = 14.dp, vertical = 14.dp)
+                    .semantics { contentDescription = "Favourite name" },
+            )
+            Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                PaperButton("Cancel", Modifier.weight(1f), kind = ButtonKind.Outline, height = 50.dp, onClick = onDismiss)
+                PaperButton("Save", Modifier.weight(1f), kind = ButtonKind.Accent, height = 50.dp) { onSave(name.text) }
+            }
+        }
     }
 }
 
@@ -514,10 +643,30 @@ private fun SetupStep(place: Place, here: LatLon?, onBack: () -> Unit, onStart: 
             Text("Change place", style = MaterialTheme.typography.labelLarge.copy(color = Night.FgSoft))
         }
 
-        Text(
-            place.name, style = MaterialTheme.typography.headlineLarge.copy(fontSize = 28.sp),
-            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp, start = 4.dp),
-        )
+        val favourites by PlaceRepository.favourites.collectAsStateWithLifecycle()
+        val starred = favourites.any { it.distanceTo(pinned.lat, pinned.lon) < 25f }
+        var starPops by remember { mutableIntStateOf(0) }
+        Row(Modifier.fillMaxWidth().padding(top = 4.dp, start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                place.name, style = MaterialTheme.typography.headlineLarge.copy(fontSize = 28.sp),
+                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+            )
+            Box(
+                Modifier.bubbleBurst(starPops).size(44.dp).clip(CircleShape)
+                    .background(if (starred) Night.Accent.copy(alpha = 0.16f) else Night.Bg)
+                    .border(1.dp, if (starred) Night.Accent.copy(alpha = 0.6f) else Night.Rule, CircleShape)
+                    .pressable({ if (!starred) starPops++; PlaceRepository.toggleFavourite(pinned) })
+                    .semantics {
+                        contentDescription = if (starred) "Remove from favourites" else "Add to favourites"
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    if (starred) Icons.Rounded.Star else Icons.Rounded.StarOutline, null,
+                    tint = if (starred) Night.Accent else Night.FgSoft, modifier = Modifier.size(22.dp),
+                )
+            }
+        }
         if (place.address.isNotBlank()) {
             Text(
                 place.address, style = MaterialTheme.typography.bodyMedium.copy(color = Night.FgSoft),
