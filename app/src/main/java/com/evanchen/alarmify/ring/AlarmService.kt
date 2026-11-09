@@ -162,7 +162,7 @@ class AlarmService : Service() {
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)
-            .setColor(0xFFC8371D.toInt())
+            .setColor(0xFFFF5A36.toInt())
             .setContentIntent(ringScreen)
             .setFullScreenIntent(ringScreen, true)
             .addAction(0, "Snooze ${AlarmRepository.SNOOZE_MINUTES} min", servicePending(this, ACTION_SNOOZE, alarm.id))

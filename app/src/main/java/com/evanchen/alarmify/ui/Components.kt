@@ -71,7 +71,7 @@ fun TimeText(
     is24: Boolean,
     size: TextUnit,
     modifier: Modifier = Modifier,
-    color: Color = Paper.Ink,
+    color: Color = Night.Fg,
 ) {
     val (time, suffix) = formatClock(is24, hour, minute)
     Row(modifier, verticalAlignment = Alignment.Bottom) {
@@ -98,16 +98,16 @@ fun PaperButton(
     onClick: () -> Unit,
 ) {
     val (bg, fg) = when (kind) {
-        ButtonKind.Filled -> Paper.Ink to Paper.Page
-        ButtonKind.Accent -> Paper.Red to Paper.Page
-        ButtonKind.Outline -> Paper.Page to Paper.Ink
+        ButtonKind.Filled -> Night.Fg to Night.Bg
+        ButtonKind.Accent -> Night.Accent to Night.Bg
+        ButtonKind.Outline -> Night.Bg to Night.Fg
     }
     Box(
         modifier
             .height(height)
             .clip(CircleShape)
             .background(bg)
-            .then(if (kind == ButtonKind.Outline) Modifier.border(1.5.dp, Paper.Ink, CircleShape) else Modifier)
+            .then(if (kind == ButtonKind.Outline) Modifier.border(1.5.dp, Night.Fg, CircleShape) else Modifier)
             .pressable(onClick)
             .padding(horizontal = 20.dp),
         contentAlignment = Alignment.Center,
@@ -119,13 +119,13 @@ fun PaperButton(
 /** Outlined chip; filled with ink when selected. */
 @Composable
 fun Chip(text: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    val bg by animateColorAsState(if (selected) Paper.Ink else Color.Transparent, tween(150), label = "chipBg")
-    val fg by animateColorAsState(if (selected) Paper.Page else Paper.Ink, tween(150), label = "chipFg")
+    val bg by animateColorAsState(if (selected) Night.Fg else Color.Transparent, tween(150), label = "chipBg")
+    val fg by animateColorAsState(if (selected) Night.Bg else Night.Fg, tween(150), label = "chipFg")
     Box(
         modifier
             .clip(CircleShape)
             .background(bg)
-            .border(1.dp, if (selected) Paper.Ink else Paper.Rule, CircleShape)
+            .border(1.dp, if (selected) Night.Fg else Night.Rule, CircleShape)
             .pressable(onClick)
             .semantics { stateDescription = if (selected) "Selected" else "Not selected" }
             .padding(horizontal = 6.dp, vertical = 11.dp),
@@ -139,14 +139,14 @@ fun Chip(text: String, selected: Boolean, modifier: Modifier = Modifier, onClick
 @Composable
 fun PaperSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit, description: String = "Alarm") {
     val knob by animateDpAsState(if (checked) 20.dp else 0.dp, tween(160), label = "knob")
-    val track by animateColorAsState(if (checked) Paper.Ink else Color.Transparent, tween(160), label = "track")
-    val dot by animateColorAsState(if (checked) Paper.Page else Paper.InkFaint, tween(160), label = "dot")
+    val track by animateColorAsState(if (checked) Night.Fg else Color.Transparent, tween(160), label = "track")
+    val dot by animateColorAsState(if (checked) Night.Bg else Night.FgFaint, tween(160), label = "dot")
     Box(
         Modifier
             .size(width = 48.dp, height = 28.dp)
             .clip(CircleShape)
             .background(track)
-            .border(1.5.dp, if (checked) Paper.Ink else Paper.InkFaint, CircleShape)
+            .border(1.5.dp, if (checked) Night.Fg else Night.FgFaint, CircleShape)
             .pressable({ onCheckedChange(!checked) }, role = Role.Switch)
             .semantics {
                 contentDescription = description
@@ -170,13 +170,13 @@ fun DayToggles(days: Set<Int>, onChange: (Set<Int>) -> Unit) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         for (d in 1..7) {
             val on = d in days
-            val bg by animateColorAsState(if (on) Paper.Ink else Color.Transparent, tween(150), label = "day")
+            val bg by animateColorAsState(if (on) Night.Fg else Color.Transparent, tween(150), label = "day")
             Box(
                 Modifier
                     .size(40.dp)
                     .clip(CircleShape)
                     .background(bg)
-                    .border(1.dp, if (on) Paper.Ink else Paper.Rule, CircleShape)
+                    .border(1.dp, if (on) Night.Fg else Night.Rule, CircleShape)
                     .pressable({ onChange(if (on) days - d else days + d) }, role = Role.Checkbox)
                     .semantics {
                         contentDescription = java.time.DayOfWeek.of(d).name.lowercase().replaceFirstChar { it.uppercase() }
@@ -184,7 +184,7 @@ fun DayToggles(days: Set<Int>, onChange: (Set<Int>) -> Unit) {
                     },
                 contentAlignment = Alignment.Center,
             ) {
-                Text(dayLetter(d), style = MaterialTheme.typography.labelLarge.copy(color = if (on) Paper.Page else Paper.Ink))
+                Text(dayLetter(d), style = MaterialTheme.typography.labelLarge.copy(color = if (on) Night.Bg else Night.Fg))
             }
         }
     }
@@ -197,17 +197,17 @@ fun Notice(title: String, body: String, action: String, onClick: () -> Unit) {
         Modifier.fillMaxWidth().pressable(onClick).padding(vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.width(3.dp).height(40.dp).background(Paper.Red))
+        Box(Modifier.width(3.dp).height(40.dp).background(Night.Accent))
         Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp))
             Text(body, style = MaterialTheme.typography.bodySmall)
         }
-        Text("$action →", style = MaterialTheme.typography.labelLarge.copy(color = Paper.Red))
+        Text("$action →", style = MaterialTheme.typography.labelLarge.copy(color = Night.Accent))
     }
 }
 
 @Composable
-fun Rule(modifier: Modifier = Modifier) = HorizontalDivider(modifier, thickness = 1.dp, color = Paper.Rule)
+fun Rule(modifier: Modifier = Modifier) = HorizontalDivider(modifier, thickness = 1.dp, color = Night.Rule)
 
 @Composable
 fun SectionLabel(text: String, modifier: Modifier = Modifier) {

@@ -1,26 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- A travel alarm clock face: ink dial and hands, red centre. -->
+<!-- A travel alarm clock face: light dial and hands, red centre. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
     <path
-        android:strokeColor="#FF1B1916"
+        android:strokeColor="#FFF2ECE2"
         android:strokeWidth="3.5"
         android:fillColor="#00000000"
         android:pathData="M54,33 A23,23 0 1,1 53.99,33 Z" />
     <path
-        android:strokeColor="#FF1B1916"
+        android:strokeColor="#FFF2ECE2"
         android:strokeWidth="3.5"
         android:strokeLineCap="round"
         android:pathData="M54,56 L54,41 M54,56 L64,61" />
     <path
-        android:strokeColor="#FF1B1916"
+        android:strokeColor="#FFF2ECE2"
         android:strokeWidth="3.5"
         android:strokeLineCap="round"
         android:pathData="M40,31 L35,27 M68,31 L73,27 M42,77 L39,81 M66,77 L69,81" />
     <path
-        android:fillColor="#FFC8371D"
+        android:fillColor="#FFFF5A36"
         android:pathData="M54,52 A4,4 0 1,1 53.99,52 Z" />
 </vector>

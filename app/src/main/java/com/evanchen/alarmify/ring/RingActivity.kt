@@ -15,8 +15,8 @@ import com.evanchen.alarmify.ui.AlarmifyTheme
 /** Full-screen ringing UI, shown over the lock screen. Closes itself as soon as nothing is ringing. */
 class RingActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
-        // Light paper in both light and dark mode, so the bar icons are always dark.
-        enableEdgeToEdge(SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT), SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT))
+        // Always dark, so the bar icons are always light.
+        enableEdgeToEdge(SystemBarStyle.dark(Color.TRANSPARENT), SystemBarStyle.dark(Color.TRANSPARENT))
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         setContent {

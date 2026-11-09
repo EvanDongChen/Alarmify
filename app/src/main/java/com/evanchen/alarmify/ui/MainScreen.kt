@@ -3,6 +3,7 @@ package com.evanchen.alarmify.ui
 import android.text.format.DateFormat
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -63,6 +64,7 @@ fun MainScreen(alarms: List<Alarm>, fixes: List<Fix>) {
     var editing by remember { mutableStateOf<Alarm?>(null) }
     var creating by remember { mutableStateOf(false) }
     var quick by remember { mutableStateOf(false) }
+    var seed by remember { mutableStateOf<Pair<Int, Int>?>(null) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -80,21 +82,37 @@ fun MainScreen(alarms: List<Alarm>, fixes: List<Fix>) {
     val sorted = alarms.sortedWith(compareBy({ it.hour }, { it.minute }, { it.id }))
     val next = alarms.mapNotNull { a -> a.nextTrigger(now)?.let { a.id to it } }.minByOrNull { it.second }
 
-    Box(Modifier.fillMaxSize().background(Paper.Page)) {
+    Box(Modifier.fillMaxSize().background(Night.Bg)) {
         LazyColumn(
             Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 24.dp, end = 24.dp, bottom = 120.dp),
         ) {
             item {
-                Column(Modifier.statusBarsPadding().padding(top = 28.dp, bottom = 20.dp)) {
-                    Text("Alarms", style = MaterialTheme.typography.headlineLarge)
-                    Text(
-                        nextLine(next?.second, now, is24),
-                        style = MaterialTheme.typography.bodyLarge.copy(
-                            fontFamily = Serif, fontStyle = FontStyle.Italic, fontSize = 19.sp, color = Paper.InkSoft,
-                        ),
-                        modifier = Modifier.padding(top = 2.dp),
+                Column(Modifier.statusBarsPadding().padding(top = 16.dp)) {
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text("Alarms", style = MaterialTheme.typography.headlineLarge.copy(fontSize = 36.sp), modifier = Modifier.weight(1f))
+                        Text(
+                            todayLabel(now),
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(bottom = 10.dp),
+                        )
+                    }
+                    DayRing(
+                        alarms = alarms,
+                        now = now,
+                        next = next?.let { (id, at) -> alarms.firstOrNull { it.id == id }?.let { it to at } },
+                        is24 = is24,
+                        onAlarmTap = { editing = it },
+                        onTimeTap = { h, m -> seed = h to m; creating = true },
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                     )
+                    if (alarms.size < 3) {
+                        Text(
+                            "Tap the ring to set an alarm at that time.",
+                            style = MaterialTheme.typography.bodySmall.copy(color = Night.FgFaint, textAlign = androidx.compose.ui.text.style.TextAlign.Center),
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                        )
+                    }
                 }
             }
             items(fixes, key = { it.title }) { fix -> Notice(fix.title, fix.body, fix.action, fix.onFix) }
@@ -127,23 +145,24 @@ fun MainScreen(alarms: List<Alarm>, fixes: List<Fix>) {
 
         // Bottom actions, within thumb reach.
         Column(
-            Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Paper.Page).navigationBarsPadding(),
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Night.Bg).navigationBarsPadding(),
         ) {
             SnackbarHost(snackbar, Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) { data ->
                 Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Paper.Ink)
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Night.Raised)
+                        .border(1.dp, Night.Rule, RoundedCornerShape(12.dp))
                         .padding(start = 18.dp, end = 8.dp).height(52.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
                         data.visuals.message,
-                        style = MaterialTheme.typography.bodyMedium.copy(color = Paper.Page),
+                        style = MaterialTheme.typography.bodyMedium.copy(color = Night.Fg),
                         modifier = Modifier.weight(1f),
                     )
                     data.visuals.actionLabel?.let { label ->
                         Text(
                             label,
-                            style = MaterialTheme.typography.labelLarge.copy(color = Color(0xFFFF8A70)),
+                            style = MaterialTheme.typography.labelLarge.copy(color = Night.Accent),
                             modifier = Modifier.pressable({ data.performAction() }).padding(10.dp),
                         )
                     }
@@ -154,7 +173,7 @@ fun MainScreen(alarms: List<Alarm>, fixes: List<Fix>) {
                 Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                PaperButton("+  New alarm", Modifier.weight(1f), kind = ButtonKind.Outline) { creating = true }
+                PaperButton("+  New alarm", Modifier.weight(1f), kind = ButtonKind.Outline) { seed = null; creating = true }
                 PaperButton("Quick alarm", Modifier.weight(1f), kind = ButtonKind.Accent) { quick = true }
             }
         }
@@ -164,12 +183,13 @@ fun MainScreen(alarms: List<Alarm>, fixes: List<Fix>) {
         AlarmEditor(
             initial = editing,
             newId = { AlarmRepository.newId() },
+            seedTime = seed,
             onSave = { a -> AlarmRepository.upsert(a); toast(ringsIn(a)) },
             onDelete = { a ->
                 AlarmRepository.delete(a.id)
                 toast("Alarm deleted") { AlarmRepository.upsert(a) }
             },
-            onDismiss = { creating = false; editing = null },
+            onDismiss = { creating = false; editing = null; seed = null },
         )
     }
 
@@ -186,9 +206,9 @@ fun MainScreen(alarms: List<Alarm>, fixes: List<Fix>) {
     }
 }
 
-private fun nextLine(at: Long?, now: Long, is24: Boolean): String =
-    if (at == null) "Nothing set to ring."
-    else "Next ${dayPhrase(at)} at ${formatClockAt(is24, at).lowercase()}, in ${formatDurationLong(at - now)}."
+private fun todayLabel(now: Long): String =
+    java.time.Instant.ofEpochMilli(now).atZone(java.time.ZoneId.systemDefault())
+        .format(java.time.format.DateTimeFormatter.ofPattern("EEE d MMM")).uppercase()
 
 @Composable
 private fun AlarmRow(
@@ -201,13 +221,13 @@ private fun AlarmRow(
 ) {
     val snoozed = (alarm.snoozedUntil ?: 0) > now
     val active = alarm.enabled || snoozed
-    val ink by animateColorAsState(if (active) Paper.Ink else Paper.InkFaint, label = "ink")
+    val ink by animateColorAsState(if (active) Night.Fg else Night.FgFaint, label = "ink")
     val at = alarm.nextTrigger(now)
 
     Row(
         Modifier
             .fillMaxWidth()
-            .background(Paper.Page)
+            .background(Night.Bg)
             .pressable(onClick, haptic = false)
             .padding(vertical = 16.dp)
             .semantics(mergeDescendants = true) {},
@@ -228,10 +248,10 @@ private fun AlarmRow(
                 append(parts.joinToString(" · "))
                 if (isNext && at != null && at - now < 24 * 3_600_000L) {
                     append(" · ")
-                    withStyle(SpanStyle(color = Paper.Red)) { append("in ${formatDuration(at - now)}") }
+                    withStyle(SpanStyle(color = Night.Accent)) { append("in ${formatDuration(at - now)}") }
                 }
             }
-            Text(detail, style = MaterialTheme.typography.bodyMedium.copy(color = if (active) Paper.InkSoft else Paper.InkFaint), maxLines = 1)
+            Text(detail, style = MaterialTheme.typography.bodyMedium.copy(color = if (active) Night.FgSoft else Night.FgFaint), maxLines = 1)
         }
         Spacer(Modifier.size(12.dp))
         PaperSwitch(alarm.enabled, onToggle)
@@ -249,8 +269,8 @@ private fun SwipeToDelete(onDelete: () -> Unit, content: @Composable () -> Unit)
         enableDismissFromStartToEnd = false,
         backgroundContent = {
             if (state.dismissDirection != SwipeToDismissBoxValue.EndToStart) return@SwipeToDismissBox
-            Box(Modifier.fillMaxSize().background(Paper.Red), contentAlignment = Alignment.CenterEnd) {
-                Text("Delete", style = MaterialTheme.typography.labelLarge.copy(color = Paper.Page), modifier = Modifier.padding(end = 20.dp))
+            Box(Modifier.fillMaxSize().background(Night.Accent), contentAlignment = Alignment.CenterEnd) {
+                Text("Delete", style = MaterialTheme.typography.labelLarge.copy(color = Night.Bg), modifier = Modifier.padding(end = 20.dp))
             }
         },
     ) { content() }
@@ -258,17 +278,9 @@ private fun SwipeToDelete(onDelete: () -> Unit, content: @Composable () -> Unit)
 
 @Composable
 private fun EmptyState() {
-    Column(Modifier.fillMaxWidth().padding(top = 48.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(10.dp).clip(CircleShape).background(Paper.Red))
-        Text(
-            "No alarms yet.",
-            style = MaterialTheme.typography.headlineLarge.copy(fontSize = 28.sp, fontStyle = FontStyle.Italic),
-            modifier = Modifier.padding(top = 16.dp),
-        )
-        Text(
-            "Make one with New alarm,\nor use Quick alarm for a nap.",
-            style = MaterialTheme.typography.bodyMedium.copy(color = Paper.InkSoft, textAlign = androidx.compose.ui.text.style.TextAlign.Center),
-            modifier = Modifier.padding(top = 6.dp),
-        )
-    }
+    Text(
+        "No alarms yet. Tap the ring, or use the buttons below.",
+        style = MaterialTheme.typography.bodyMedium.copy(color = Night.FgSoft),
+        modifier = Modifier.padding(vertical = 20.dp),
+    )
 }

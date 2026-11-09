@@ -52,6 +52,7 @@ import kotlinx.coroutines.launch
 fun AlarmEditor(
     initial: Alarm?,
     newId: () -> Int,
+    seedTime: Pair<Int, Int>? = null,
     onSave: (Alarm) -> Unit,
     onDelete: (Alarm) -> Unit,
     onDismiss: () -> Unit,
@@ -63,7 +64,7 @@ fun AlarmEditor(
 
     // A new alarm starts at the next round half hour: one flick from most choices.
     val seed = remember {
-        initial ?: run {
+        initial ?: seedTime?.let { (h, m) -> Alarm(id = -1, hour = h, minute = m) } ?: run {
             val now = java.time.LocalTime.now().plusMinutes(30)
             val m = if (now.minute < 30) 30 else 0
             val h = if (now.minute < 30) now.hour else (now.hour + 1) % 24
@@ -87,10 +88,10 @@ fun AlarmEditor(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheet,
-        containerColor = Paper.Sheet,
+        containerColor = Night.Raised,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         dragHandle = {
-            Box(Modifier.padding(top = 10.dp).size(width = 36.dp, height = 4.dp).clip(CircleShape).background(Paper.Rule))
+            Box(Modifier.padding(top = 10.dp).size(width = 36.dp, height = 4.dp).clip(CircleShape).background(Night.Rule))
         },
     ) {
         Column(
@@ -109,7 +110,7 @@ fun AlarmEditor(
                 )
                 Text(
                     "Cancel",
-                    style = MaterialTheme.typography.labelLarge.copy(color = Paper.InkSoft),
+                    style = MaterialTheme.typography.labelLarge.copy(color = Night.FgSoft),
                     modifier = Modifier.pressable({ close {} }).padding(8.dp),
                 )
             }
@@ -132,7 +133,7 @@ fun AlarmEditor(
                             { "${it + 1}" }, Modifier.width(92.dp), description = "Hour", fontSize = 48.sp,
                         )
                     }
-                    Text(":", style = Clock.copy(fontSize = 44.sp, color = Paper.InkFaint))
+                    Text(":", style = Clock.copy(fontSize = 44.sp, color = Night.FgFaint))
                     WheelPicker(60, minute, { minute = it }, { "%02d".format(it) }, Modifier.width(92.dp), description = "Minute", fontSize = 48.sp)
                     if (!is24) {
                         WheelPicker(
@@ -148,7 +149,7 @@ fun AlarmEditor(
 
             Text(
                 next?.let { "Rings ${dayPhrase(it)}, in ${formatDurationLong(it - now)}." } ?: "",
-                style = MaterialTheme.typography.bodyLarge.copy(fontFamily = Serif, fontStyle = FontStyle.Italic, fontSize = 19.sp, color = Paper.InkSoft),
+                style = MaterialTheme.typography.bodyLarge.copy(fontFamily = Serif, fontStyle = FontStyle.Italic, fontSize = 19.sp, color = Night.FgSoft),
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
             )
@@ -166,16 +167,16 @@ fun AlarmEditor(
             TextField(
                 value = label,
                 onValueChange = { label = it.take(40) },
-                placeholder = { Text("Gym, meds, the 7:42 train…", style = MaterialTheme.typography.bodyLarge.copy(color = Paper.InkFaint)) },
+                placeholder = { Text("Gym, meds, the 7:42 train…", style = MaterialTheme.typography.bodyLarge.copy(color = Night.FgFaint)) },
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodyLarge,
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = Color.Transparent,
                     unfocusedContainerColor = Color.Transparent,
-                    focusedIndicatorColor = Paper.Ink,
-                    unfocusedIndicatorColor = Paper.Rule,
-                    cursorColor = Paper.Red,
+                    focusedIndicatorColor = Night.Fg,
+                    unfocusedIndicatorColor = Night.Rule,
+                    cursorColor = Night.Accent,
                 ),
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -197,7 +198,7 @@ fun AlarmEditor(
             if (initial != null) {
                 Text(
                     "Delete alarm",
-                    style = MaterialTheme.typography.labelLarge.copy(color = Paper.Red),
+                    style = MaterialTheme.typography.labelLarge.copy(color = Night.Accent),
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp).pressable({ close { onDelete(initial) } }).padding(14.dp),
                 )

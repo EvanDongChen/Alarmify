@@ -10,6 +10,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -50,7 +51,7 @@ import androidx.compose.ui.unit.sp
 import com.evanchen.alarmify.data.Alarm
 import com.evanchen.alarmify.data.AlarmRepository
 import com.evanchen.alarmify.ui.ButtonKind
-import com.evanchen.alarmify.ui.Paper
+import com.evanchen.alarmify.ui.Night
 import com.evanchen.alarmify.ui.PaperButton
 import com.evanchen.alarmify.ui.Serif
 import com.evanchen.alarmify.ui.TimeText
@@ -70,7 +71,7 @@ fun RingScreen(alarm: Alarm, onSnooze: () -> Unit, onStop: () -> Unit) {
     Column(
         Modifier
             .fillMaxSize()
-            .background(Paper.Page)
+            .background(Night.Bg)
             .statusBarsPadding()
             .navigationBarsPadding()
             .padding(horizontal = 24.dp, vertical = 16.dp),
@@ -79,7 +80,7 @@ fun RingScreen(alarm: Alarm, onSnooze: () -> Unit, onStop: () -> Unit) {
         Spacer(Modifier.height(56.dp))
         Text(
             t.format(DateTimeFormatter.ofPattern("EEEE d MMMM")).uppercase(),
-            style = MaterialTheme.typography.labelSmall.copy(color = Paper.InkSoft),
+            style = MaterialTheme.typography.labelSmall.copy(color = Night.FgSoft),
         )
         TimeText(t.hour, t.minute, DateFormat.is24HourFormat(context), 112.sp, Modifier.padding(top = 4.dp))
         Text(
@@ -111,13 +112,13 @@ private fun Pulse() {
         for (i in 0 until 2) {
             val q = (p + i * 0.5f) % 1f
             drawCircle(
-                Paper.Red.copy(alpha = (1f - q) * 0.6f),
+                Night.Accent.copy(alpha = (1f - q) * 0.6f),
                 radius = 14.dp.toPx() + q * size.minDimension / 2.2f,
                 center = c,
                 style = Stroke(1.5.dp.toPx()),
             )
         }
-        drawCircle(Paper.Red, radius = 14.dp.toPx(), center = c)
+        drawCircle(Night.Accent, radius = 14.dp.toPx(), center = c)
     }
 }
 
@@ -133,7 +134,8 @@ private fun SlideToStop(onStop: () -> Unit) {
             .fillMaxWidth()
             .height(72.dp)
             .clip(CircleShape)
-            .background(Paper.Ink)
+            .background(Night.Raised)
+            .border(1.dp, Night.Rule, CircleShape)
             .semantics {
                 contentDescription = "Slide to stop alarm"
                 onClick("Stop alarm") { onStop(); true }
@@ -144,7 +146,7 @@ private fun SlideToStop(onStop: () -> Unit) {
 
         Text(
             "Slide to stop  →",
-            style = MaterialTheme.typography.labelLarge.copy(color = Paper.Page, fontSize = 17.sp),
+            style = MaterialTheme.typography.labelLarge.copy(color = Night.Fg, fontSize = 17.sp),
             modifier = Modifier.align(Alignment.Center).alpha(1f - progress),
         )
         Box(
@@ -153,7 +155,7 @@ private fun SlideToStop(onStop: () -> Unit) {
                 .offset { IntOffset(drag.value.roundToInt(), 0) }
                 .size(thumb)
                 .clip(CircleShape)
-                .background(Paper.Red)
+                .background(Night.Accent)
                 .pointerInput(maxPx) {
                     detectHorizontalDragGestures(
                         onDragEnd = {

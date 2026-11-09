@@ -68,27 +68,27 @@ fun QuickSheet(onPick: (at: Long, label: String) -> Unit, onDismiss: () -> Unit)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheet,
-        containerColor = Paper.Sheet,
+        containerColor = Night.Raised,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         dragHandle = {
-            Box(Modifier.padding(top = 10.dp).size(width = 36.dp, height = 4.dp).clip(CircleShape).background(Paper.Rule))
+            Box(Modifier.padding(top = 10.dp).size(width = 36.dp, height = 4.dp).clip(CircleShape).background(Night.Rule))
         },
     ) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 24.dp).padding(bottom = 20.dp)) {
             Text("Quick alarm", style = MaterialTheme.typography.headlineLarge.copy(fontSize = 32.sp), modifier = Modifier.padding(top = 12.dp))
             Text(
                 "Tap a duration. It rings once, then switches off.",
-                style = MaterialTheme.typography.bodyMedium.copy(color = Paper.InkSoft),
+                style = MaterialTheme.typography.bodyMedium.copy(color = Night.FgSoft),
                 modifier = Modifier.padding(top = 2.dp, bottom = 18.dp),
             )
 
             // A keypad of durations, ruled like a timetable.
-            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).border(1.dp, Paper.Rule, RoundedCornerShape(14.dp))) {
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).border(1.dp, Night.Rule, RoundedCornerShape(14.dp))) {
                 DURATIONS.chunked(3).forEachIndexed { r, row ->
                     if (r > 0) Rule()
                     Row(Modifier.fillMaxWidth().height(92.dp)) {
                         row.forEachIndexed { c, m ->
-                            if (c > 0) Box(Modifier.width(1.dp).height(92.dp).background(Paper.Rule))
+                            if (c > 0) Box(Modifier.width(1.dp).height(92.dp).background(Night.Rule))
                             val at = now + m * 60_000L
                             DurationKey(m, formatClockAt(is24, at).lowercase(), Modifier.weight(1f)) {
                                 pick(System.currentTimeMillis() + m * 60_000L, "Quick, ${durationWords(m)}")
@@ -105,7 +105,7 @@ fun QuickSheet(onPick: (at: Long, label: String) -> Unit, onDismiss: () -> Unit)
                     Text(durationWords(custom), style = Clock.copy(fontSize = 30.sp))
                     Text(
                         "rings ${formatClockAt(is24, now + custom * 60_000L).lowercase()}",
-                        style = MaterialTheme.typography.bodySmall.copy(color = Paper.InkFaint),
+                        style = MaterialTheme.typography.bodySmall.copy(color = Night.FgFaint),
                     )
                 }
                 StepButton("+", "Five minutes more") { custom = (custom + 5).coerceAtMost(12 * 60) }
@@ -121,7 +121,7 @@ fun QuickSheet(onPick: (at: Long, label: String) -> Unit, onDismiss: () -> Unit)
                     Box(
                         Modifier
                             .clip(CircleShape)
-                            .border(1.dp, Paper.Rule, CircleShape)
+                            .border(1.dp, Night.Rule, CircleShape)
                             .pressable({ pick(at, "") })
                             .semantics { contentDescription = "Wake up at ${formatClockAt(is24, at)}" }
                             .padding(horizontal = 16.dp, vertical = 10.dp),
@@ -153,7 +153,7 @@ private fun DurationKey(minutes: Int, ringsAt: String, modifier: Modifier, onCli
             Text(num, style = Clock.copy(fontSize = 36.sp))
             Text(unit, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(start = 3.dp, bottom = 7.dp))
         }
-        Text(ringsAt, style = MaterialTheme.typography.bodySmall.copy(color = Paper.InkFaint, fontFamily = Serif, fontStyle = FontStyle.Italic, fontSize = 14.sp))
+        Text(ringsAt, style = MaterialTheme.typography.bodySmall.copy(color = Night.FgFaint, fontFamily = Serif, fontStyle = FontStyle.Italic, fontSize = 14.sp))
     }
 }
 
@@ -163,7 +163,7 @@ private fun StepButton(symbol: String, description: String, onClick: () -> Unit)
         Modifier
             .size(48.dp)
             .clip(CircleShape)
-            .border(1.dp, Paper.Rule, CircleShape)
+            .border(1.dp, Night.Rule, CircleShape)
             .pressable(onClick)
             .semantics { contentDescription = description },
         contentAlignment = Alignment.Center,
