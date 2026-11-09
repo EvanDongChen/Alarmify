@@ -86,6 +86,11 @@ class MainActivity : ComponentActivity() {
                 openSettings(Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:$packageName")))
             }
         }
+        if (!Settings.canDrawOverlays(this)) {
+            list += Fix("Show alarms over other apps", "So an alarm fills the screen even while you're using your phone.", "Allow") {
+                openSettings(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+            }
+        }
         fixes = list
         // Permissions may have just been granted: re-plan with exact alarms if we can now.
         AlarmRepository.rescheduleAll()

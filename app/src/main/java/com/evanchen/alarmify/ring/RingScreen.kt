@@ -90,21 +90,32 @@ fun RingScreen(alarm: Alarm, onSnooze: () -> Unit, onStop: () -> Unit) {
             style = MaterialTheme.typography.labelSmall.copy(color = Night.FgSoft),
         )
         TimeText(t.hour, t.minute, DateFormat.is24HourFormat(context), 112.sp, Modifier.padding(top = 4.dp))
+        if (alarm.isPlace) {
+            Text(
+                "YOU'RE NEARLY THERE",
+                style = MaterialTheme.typography.labelSmall.copy(color = Night.Accent),
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
         Text(
             alarm.label.ifBlank { "Rise and swim." },
             style = MaterialTheme.typography.bodyLarge.copy(fontFamily = Serif, fontStyle = FontStyle.Italic, fontSize = 26.sp),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
 
         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { Pulse() }
 
-        PaperButton(
-            "Snooze ${AlarmRepository.SNOOZE_MINUTES} min",
-            Modifier.fillMaxWidth(),
-            kind = ButtonKind.Outline,
-            height = 72.dp,
-            onClick = onSnooze,
-        )
-        Spacer(Modifier.height(14.dp))
+        // Nothing to snooze once you've arrived somewhere.
+        if (!alarm.isPlace) {
+            PaperButton(
+                "Snooze ${AlarmRepository.SNOOZE_MINUTES} min",
+                Modifier.fillMaxWidth(),
+                kind = ButtonKind.Outline,
+                height = 72.dp,
+                onClick = onSnooze,
+            )
+            Spacer(Modifier.height(14.dp))
+        }
         SlideToStop(onStop)
     }
     }

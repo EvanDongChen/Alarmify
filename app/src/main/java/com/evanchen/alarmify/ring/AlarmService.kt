@@ -49,6 +49,11 @@ class AlarmService : Service() {
         val id = intent?.getIntExtra(EXTRA_ID, -1) ?: -1
         when (intent?.action) {
             ACTION_START -> start(id)
+            ACTION_START_PLACE -> startPlace(
+                id,
+                intent.getStringExtra(EXTRA_LABEL).orEmpty(),
+                intent.getBooleanExtra(EXTRA_VIBRATE, true),
+            )
             ACTION_SNOOZE -> { AlarmRepository.snooze(id); stopRinging() }
             ACTION_DISMISS -> { AlarmRepository.dismiss(id); stopRinging() }
             else -> stopRinging()
@@ -59,20 +64,36 @@ class AlarmService : Service() {
     private fun start(id: Int) {
         val alarm = AlarmRepository.get(id)
         // Always go foreground first: startForegroundService requires it even when we bail out.
-        val notification = buildNotification(alarm ?: Alarm(id = id, hour = 0, minute = 0))
+        goForeground(alarm ?: Alarm(id = id, hour = 0, minute = 0))
+        if (alarm == null) { stopRinging(); return }
+        AlarmRepository.onFired(id)
+        ring(alarm)
+    }
+
+    /** A place alarm: you've arrived near somewhere. Rings like any alarm, but there's nothing to snooze. */
+    private fun startPlace(placeId: Int, label: String, vibrate: Boolean) {
+        val now = java.time.LocalTime.now()
+        val alarm = Alarm(id = -placeId, hour = now.hour, minute = now.minute, label = label, vibrate = vibrate)
+        goForeground(alarm)
+        ring(alarm)
+    }
+
+    private fun goForeground(alarm: Alarm) {
+        val notification = buildNotification(alarm)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
-        if (alarm == null) { stopRinging(); return }
+    }
 
+    private fun ring(alarm: Alarm) {
         // A new alarm while another is ringing replaces it.
-        currentId?.let { if (it != id) AlarmRepository.dismiss(it) }
+        currentId?.let { if (it != alarm.id) AlarmRepository.dismiss(it) }
         releasePlayback()
-        currentId = id
-        AlarmRepository.onFired(id)
+        currentId = alarm.id
         _ringing.value = alarm
+        showRingScreen() // first, so the screen appears at once even if the sound is slow to load
 
         wakeLock = getSystemService(PowerManager::class.java)
             .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "alarmify:ringing")
@@ -85,6 +106,21 @@ class AlarmService : Service() {
         if (alarm.vibrate) vibrate()
 
         handler.postDelayed(autoSilence, AUTO_SILENCE_MS)
+    }
+
+    /**
+     * While you're using the phone, Android only shows a full-screen alarm as a banner. With "Display over other
+     * apps" allowed we may open the ringing screen ourselves, so it covers whatever you're doing. (Locked or
+     * asleep, the notification's full-screen intent opens it either way.)
+     */
+    private fun showRingScreen() {
+        if (!Settings.canDrawOverlays(this)) return
+        runCatching {
+            startActivity(
+                Intent(this, RingActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_USER_ACTION),
+            )
+        }
     }
 
     private val autoSilence = Runnable { currentId?.let { AlarmRepository.dismiss(it) }; stopRinging() }
@@ -256,6 +292,9 @@ class AlarmService : Service() {
         private const val ACTION_START = "com.evanchen.alarmify.START"
         private const val ACTION_SNOOZE = "com.evanchen.alarmify.SNOOZE"
         private const val ACTION_DISMISS = "com.evanchen.alarmify.DISMISS"
+        private const val ACTION_START_PLACE = "com.evanchen.alarmify.START_PLACE"
+        private const val EXTRA_LABEL = "label"
+        private const val EXTRA_VIBRATE = "vibrate"
         private const val EXTRA_ID = "id"
         private const val NOTIFICATION_ID = 42
         private const val AUTO_SILENCE_MS = 10 * 60 * 1000L
@@ -277,6 +316,13 @@ class AlarmService : Service() {
 
         fun startIntent(context: Context, id: Int) =
             Intent(context, AlarmService::class.java).setAction(ACTION_START).putExtra(EXTRA_ID, id)
+
+        /** Rings for a place alarm ([placeId] > 0); called by the tracker when you get close. */
+        fun startPlace(context: Context, placeId: Int, label: String, vibrate: Boolean) =
+            context.startForegroundService(
+                Intent(context, AlarmService::class.java).setAction(ACTION_START_PLACE)
+                    .putExtra(EXTRA_ID, placeId).putExtra(EXTRA_LABEL, label).putExtra(EXTRA_VIBRATE, vibrate),
+            )
 
         fun snooze(context: Context, id: Int) =
             context.startService(Intent(context, AlarmService::class.java).setAction(ACTION_SNOOZE).putExtra(EXTRA_ID, id))
