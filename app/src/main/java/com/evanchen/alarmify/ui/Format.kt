@@ -5,6 +5,7 @@ import android.text.format.DateFormat
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.produceState
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.delay
 import java.time.DayOfWeek
 import java.time.Instant
@@ -90,12 +91,17 @@ fun greeting(hour: Int): String = when (hour) {
     else -> "Good night"
 }
 
-/** The current time, ticking on the second (or [periodMs]). */
+/** The current time, ticking on the second (or [periodMs]), and only while the screen is visible. */
 @Composable
-fun rememberNow(periodMs: Long = 1_000): State<Long> = produceState(System.currentTimeMillis(), periodMs) {
-    while (true) {
-        value = System.currentTimeMillis()
-        delay(periodMs - value % periodMs)
+fun rememberNow(periodMs: Long = 1_000): State<Long> {
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    return produceState(System.currentTimeMillis(), periodMs, lifecycle) {
+        lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+            while (true) {
+                value = System.currentTimeMillis()
+                delay(periodMs - value % periodMs)
+            }
+        }
     }
 }
 

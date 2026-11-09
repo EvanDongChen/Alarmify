@@ -69,5 +69,8 @@ fun AlarmifyTheme(content: @Composable () -> Unit) {
         labelMedium = body.copy(fontSize = 13.sp, fontWeight = FontWeight.Medium),
         labelSmall = body.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp, color = Night.FgFaint),
     )
-    MaterialTheme(colorScheme = colors, typography = typography, content = content)
+    val ambient = ambientClock()
+    MaterialTheme(colorScheme = colors, typography = typography) {
+        androidx.compose.runtime.CompositionLocalProvider(LocalAmbientTime provides ambient, content = content)
+    }
 }

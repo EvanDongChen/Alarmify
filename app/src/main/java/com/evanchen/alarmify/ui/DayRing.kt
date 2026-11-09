@@ -86,9 +86,7 @@ fun DayRing(
     }
     LaunchedEffect(targetSweep) { if (!sweep.isRunning) sweep.snapTo(targetSweep) }
 
-    val glow = rememberInfiniteTransition(label = "glow")
-    val breath by glow.animateFloat(0.35f, 0.8f, infiniteRepeatable(tween(1800), RepeatMode.Reverse), label = "breath")
-    val rise by glow.animateFloat(0f, 1f, infiniteRepeatable(tween(14_000, easing = LinearEasing)), label = "rise")
+    val clock = rememberAmbientTime()
 
     val currentAlarms by rememberUpdatedState(alarms)
     val currentOnAlarmTap by rememberUpdatedState(onAlarmTap)
@@ -133,6 +131,9 @@ fun DayRing(
         Canvas(Modifier.fillMaxSize()) {
             val c = center
             val r = ringRadius(size, density)
+            val time = clock.value
+            val breath = 0.575f + 0.225f * sin(time * 1.75f)
+            val rise = (time / 14f) % 1f
             drawDial(c, r, measurer, is24)
             drawBubbles(c, r, rise)
 

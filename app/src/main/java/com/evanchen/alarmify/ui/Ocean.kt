@@ -41,14 +41,14 @@ private const val TAU = (2 * PI).toFloat()
  */
 @Composable
 fun OceanBackdrop(modifier: Modifier = Modifier, school: Boolean = true, depth: () -> Float = { 0f }) {
-    val t = rememberInfiniteTransition(label = "ocean")
-    // One slow clock for everything (seconds, wrapping every 120 s).
-    val time by t.animateFloat(0f, 120f, infiniteRepeatable(tween(120_000, easing = LinearEasing)), label = "time")
+    // One slow, battery-minded clock for everything (see rememberAmbientTime).
+    val clock = rememberAmbientTime()
     val snow = remember { List(34) { Triple(Random.nextFloat(), Random.nextFloat(), Random.nextFloat()) } }
 
     Canvas(modifier) {
         // How far down the page we've scrolled. The surface light stays at the top of the page, so it slides up
         // and out of view as you go down, and the water gets darker the deeper you are.
+        val time = clock.value
         val d = depth().coerceAtLeast(0f)
         drawRect(
             Brush.verticalGradient(

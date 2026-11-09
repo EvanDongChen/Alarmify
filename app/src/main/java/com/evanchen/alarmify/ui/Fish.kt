@@ -68,9 +68,9 @@ fun DrawScope.drawFish(
 /** A small outlined fish that idly flicks its tail, for headers and empty states. */
 @Composable
 fun FishGlyph(modifier: Modifier, color: Color = Night.FgSoft, facingRight: Boolean = true) {
-    val t = rememberInfiniteTransition(label = "fishGlyph")
-    val sway by t.animateFloat(-1f, 1f, infiniteRepeatable(tween(900), RepeatMode.Reverse), label = "sway")
+    val clock = rememberAmbientTime()
     Canvas(modifier) {
+        val sway = kotlin.math.sin(clock.value * 3.5f)
         drawFish(
             center = center,
             length = size.width * 0.92f,

@@ -27,6 +27,16 @@ switch one on. Instrument Serif for times and Instrument Sans for text
 
 Alarms use `AlarmManager.setAlarmClock`, so they ring exactly on time in Doze, and are restored after a reboot.
 
+## Battery
+
+- Closed, the app costs nothing: alarms are held by the system's alarm clock, with no background service,
+  polling or wake locks. It wakes only to ring, and holds the phone awake for at most the 10 minutes before
+  it silences itself.
+- Open, the water and fish run off one shared clock that ticks about 20 times a second instead of every display
+  frame, and only while the screen is visible (measured: 450 → 153 frames in 10 s on a 60 Hz emulator).
+- With Battery Saver on, or animations off in system settings, the scene stands still (22 frames in 10 s, just
+  the countdown).
+
 ## Install on your phone
 
 1. On the phone: Settings → About phone → tap **Build number** 7 times, then Settings → System → Developer
