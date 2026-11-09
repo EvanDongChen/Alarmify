@@ -10,6 +10,14 @@ Jetpack Compose.
   <img src="docs/screenshots/ringing.png" width="200" alt="The ringing screen" />
 </p>
 
+## Download
+
+**[Download Alarmify.apk](https://github.com/EvanDongChen/Alarmify/raw/feature/alarm-app/apk/Alarmify.apk)**
+(2.3 MB, Android 10 or newer). It's also in the repo at [`apk/Alarmify.apk`](apk/Alarmify.apk).
+
+To install it, open that link on your phone, download the file and tap it. Android will ask you to allow your
+browser to install apps the first time ("Install unknown apps"); allow it, then tap **Install**.
+
 ## What it does
 
 **One screen.** Every alarm lives in a single list, with **New alarm** and **Quick alarm** at the bottom,
