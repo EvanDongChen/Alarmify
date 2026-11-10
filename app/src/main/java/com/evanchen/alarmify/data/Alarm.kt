@@ -25,6 +25,9 @@ data class Alarm(
 ) {
     val repeats: Boolean get() = days.isNotEmpty()
 
+    /** A stand-in used while a place alarm rings (its id is the place's id, negated). */
+    val isPlace: Boolean get() = id < 0
+
     /** The next moment this alarm should ring, strictly after [nowMs], or null if it won't. */
     fun nextTrigger(nowMs: Long = System.currentTimeMillis(), zone: ZoneId = ZoneId.systemDefault()): Long? {
         snoozedUntil?.let { if (it > nowMs) return it }

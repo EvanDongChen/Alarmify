@@ -53,6 +53,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.evanchen.alarmify.data.Alarm
 import com.evanchen.alarmify.data.AlarmRepository
+import com.evanchen.alarmify.data.PlaceRepository
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 
 /** Something that would stop alarms ringing, and how to fix it. */
@@ -66,6 +68,9 @@ fun MainScreen(alarms: List<Alarm>, fixes: List<Fix>) {
     var editing by remember { mutableStateOf<Alarm?>(null) }
     var creating by remember { mutableStateOf(false) }
     var quick by remember { mutableStateOf(false) }
+    var placing by remember { mutableStateOf(false) }
+    val places by PlaceRepository.active.collectAsStateWithLifecycle()
+    val here by PlaceRepository.here.collectAsStateWithLifecycle()
     var seed by remember { mutableStateOf<Pair<Int, Int>?>(null) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -130,6 +135,16 @@ fun MainScreen(alarms: List<Alarm>, fixes: List<Fix>) {
             }
             items(fixes, key = { it.title }) { fix -> Notice(fix.title, fix.body, fix.action, fix.onFix) }
             item { WaveRule() }
+            // Place alarms that are watching, above the clock alarms.
+            items(places, key = { "place-${it.id}" }) { p ->
+                Column(Modifier.animateItem()) {
+                    PlaceAlarmCard(p, here) {
+                        PlaceRepository.cancel(p.id)
+                        toast("Stopped watching for ${p.place.name}") { PlaceRepository.restore(p) }
+                    }
+                    WaveRule()
+                }
+            }
 
             if (sorted.isEmpty()) {
                 item { EmptyState() }
@@ -188,8 +203,9 @@ fun MainScreen(alarms: List<Alarm>, fixes: List<Fix>) {
                 Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                PaperButton("+  New alarm", Modifier.weight(1f), kind = ButtonKind.Outline) { seed = null; creating = true }
-                PaperButton("Quick alarm", Modifier.weight(1f), kind = ButtonKind.Accent) { quick = true }
+                PaperButton("+ Alarm", Modifier.weight(1f), kind = ButtonKind.Outline) { seed = null; creating = true }
+                PaperButton("Place", Modifier.weight(1f), kind = ButtonKind.Outline) { placing = true }
+                PaperButton("Quick", Modifier.weight(1f), kind = ButtonKind.Accent) { quick = true }
             }
         }
     }
@@ -205,6 +221,13 @@ fun MainScreen(alarms: List<Alarm>, fixes: List<Fix>) {
                 toast("Alarm deleted") { AlarmRepository.upsert(a) }
             },
             onDismiss = { creating = false; editing = null; seed = null },
+        )
+    }
+
+    if (placing) {
+        PlaceSheet(
+            onStarted = { a -> toast("Watching for ${a.place.name}") },
+            onDismiss = { placing = false },
         )
     }
 
