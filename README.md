@@ -23,17 +23,23 @@ browser to install apps the first time ("Install unknown apps"); allow it, then 
 **One screen.** Every alarm lives in a single list, with **+ Alarm**, **Place** and **Quick** at the bottom,
 within reach of your thumb.
 
-**The day ring.** The top of the screen is your day as a 24-hour dial, laid out like the sun's path: noon at the
-top, midnight at the bottom, morning on the left. A small fish swims round it to mark the time now, your alarms
-sit on it as bubbles, and a coral arc runs from now to the next one, with the countdown in the middle.
-**Tap anywhere on the ring to set an alarm at that time**, or tap a bubble to edit that alarm.
+**The dial.** The top of the screen is a 12-hour clock face with two sides, **AM** and **PM**, that flip over
+like a coin: swipe the dial sideways or use the AM/PM switch under it (a coral dot on the switch marks the side
+with alarms). A small fish swims round it to mark the time now, your alarms sit on it as bubbles, and a coral arc
+runs from now to the next alarm when it's within the next 12 hours or so, with the countdown in the middle.
+
+- **Tap** the dial to set an alarm at that time (to the quarter hour), or tap a bubble to edit that alarm.
+- **Hold and drag** round the dial for the exact time: a coral handle follows your finger, and the middle swaps
+  the countdown for the time you're choosing and how long until it rings. Let go to set it.
+
+<p align="center"><img src="docs/screenshots/dial-scrub.png" width="200" alt="Holding and dragging on the dial to choose 4:30 pm" /></p>
 
 **Quick alarm.** For naps, cooking and focus sessions: tap **+1, +5, +10, +15, +30 min** or **+1 hour** as many
 times as you like to add up a total. The popup shows the total and the time it will ring as you go. **Set alarm**
 saves it as a one-time alarm in your list, accurate to the second.
 
 **Place alarm.** Wake up before your stop. It opens on a map around you with a pin in the middle: drag the map to
-put the pin anywhere, see what's there ("Near Shawarma Time, 700 Hamilton Street · 600 m from you"), and tap
+put the pin anywhere (pinch or double-tap to zoom; the pin stays put), see what's there ("Near Shawarma Time, 700 Hamilton Street · 600 m from you"), and tap
 **Set alarm here**. Or search for a station, address or anywhere: results appear as you type, nearest first,
 and places you've used before sit above the map as quick picks.
 
@@ -113,8 +119,8 @@ the app needs to ring on time and over the lock screen.
   the phone, Android only shows that as a banner, so with "Display over other apps" allowed the service opens the
   ringing screen itself.
 - **Place alarms.** Search, and naming a dropped pin, use [Photon](https://photon.komoot.io) (OpenStreetMap data),
-  with Android's geocoder as a fallback. The map is [osmdroid](https://github.com/osmdroid/osmdroid) showing Esri's dark grey basemap
-  (no API key), tinted to the app's teal; the ring, buoy and fish are drawn on top in Compose. While a place alarm is active, a location service watches where you are: rarely and at low power
+  with Android's geocoder as a fallback. The map is [osmdroid](https://github.com/osmdroid/osmdroid) showing OpenStreetMap's standard map
+  (street names, stations, shops and parks), inverted and tinted to the app's teal; the ring, buoy and fish are drawn on top in Compose. While a place alarm is active, a location service watches where you are: rarely and at low power
   when you're far away, more often as you get close, and not at all once nothing is left to watch. Arriving rings
   through the system alarm clock, so it works with the app closed.
 - **Headphones.** Android's alarm sound always plays out loud, even with headphones in. So when headphones are
